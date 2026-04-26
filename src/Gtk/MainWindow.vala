@@ -45,6 +45,8 @@ public class MainWindow : Adw.ApplicationWindow {
 	Gdk.Texture? pix_mainline_rc;
 	Gdk.Cursor cursor_busy;
 
+	bool is_binding = false;
+
 	bool updating;
 
 	Gee.ArrayList<LinuxKernel> selected_kernels;
@@ -67,11 +69,9 @@ public class MainWindow : Adw.ApplicationWindow {
 		sel_model = new Gtk.MultiSelection(sort_model);
 		tv = new Gtk.ColumnView(sel_model);
 
-		try {
-			pix_ubuntu    = Gdk.Texture.from_filename(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/ubuntu-logo.png");
-			pix_mainline  = Gdk.Texture.from_filename(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux.png");
-			pix_mainline_rc = Gdk.Texture.from_filename(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux-red.png");
-		} catch (Error e) { vprint(e.message, 1, stderr); }
+		pix_ubuntu      = load_texture("ubuntu-logo.png");
+		pix_mainline    = load_texture("tux.png");
+		pix_mainline_rc = load_texture("tux-red.png");
 
 		vbox_main = new Box(Orientation.VERTICAL, SPACING);
 		vbox_main.set_margin_start(SPACING);
@@ -165,11 +165,11 @@ public class MainWindow : Adw.ApplicationWindow {
 			cb.halign = Gtk.Align.CENTER;
 			li.set_child(cb);
 			// connect once; read current item via closure over li
-			cb.toggled.connect(() => {
+			cb.notify["active"].connect(() => {
+				if (is_binding) return;
 				var k = li.get_item() as LinuxKernel;
 				if (k != null && cb.active != k.is_locked) {
 					k.set_locked(cb.active);
-					// refresh tooltip on kernel column widget
 				}
 			});
 		});
@@ -178,9 +178,9 @@ public class MainWindow : Adw.ApplicationWindow {
 			var k  = (LinuxKernel) li.get_item();
 			var cb = (Gtk.CheckButton) li.get_child();
 			// block signal temporarily so bind doesn't trigger toggled
-			GLib.SignalHandler.block_by_func(cb, (void*)on_lock_toggled_dummy, cb);
+			is_binding = true;
 			cb.active = k.is_locked;
-			GLib.SignalHandler.unblock_by_func(cb, (void*)on_lock_toggled_dummy, cb);
+			is_binding = false;
 		});
 
 		var col_lock = new Gtk.ColumnViewColumn(_("Lock"), factory_lock);
@@ -259,8 +259,24 @@ public class MainWindow : Adw.ApplicationWindow {
 		sort_model.sorter = tv.sorter;
 	}
 
-	// Dummy function pointer used only for signal block/unblock by func
-	static void on_lock_toggled_dummy() {}
+	Gdk.Texture? load_texture(string name) {
+		string[] paths = {
+			INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/" + name,
+			"./data/" + name,
+			"../data/" + name,
+			"/usr/share/pixmaps/" + BRANDING_SHORTNAME + "/" + name,
+			"/usr/local/share/pixmaps/" + BRANDING_SHORTNAME + "/" + name
+		};
+
+		foreach (string path in paths) {
+			if (GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+				try {
+					return Gdk.Texture.from_filename(path);
+				} catch (Error e) { vprint(e.message, 1, stderr); }
+			}
+		}
+		return null;
+	}
 
 	void tv_selection_changed() {
 		selected_kernels.clear();
@@ -397,7 +413,7 @@ public class MainWindow : Adw.ApplicationWindow {
 			"LucasChollet@github"
 		};
 
-		string[] notice_sh = { "Brian K. White (https://github.com/bkw777/notice.sh)" };
+		const string[] notice_sh = { "Brian K. White (https://github.com/bkw777/notice.sh)" };
 
 		var dialog = new Adw.AboutDialog();
 		dialog.application_name = BRANDING_LONGNAME;
@@ -408,7 +424,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		dialog.comments = _("A tool for installing kernel packages\nfrom the Ubuntu Mainline Kernels PPA");
 		dialog.copyright = "\"ukuu\" 2015 Tony George\n\"" + BRANDING_SHORTNAME + "\" " + BRANDING_COPYRIGHT + " " + BRANDING_AUTHORNAME;
 		dialog.license_type = Gtk.License.GPL_3_0;
-		dialog.developers = developers;
+		dialog.set("developers", developers, null);
 		
 		// Improve translator formatting: replace the spaces between entries with newlines
 		if (TRANSLATORS != null) {

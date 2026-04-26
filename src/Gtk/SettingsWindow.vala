@@ -10,7 +10,7 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		// Page 1: Filters
 		var page_filters = new Adw.PreferencesPage();
 		page_filters.title = _("Filters");
-		page_filters.icon_name = "view-filter-symbolic";
+		page_filters.icon_name = "filter-symbolic";
 		add(page_filters);
 
 		var group_filters = new Adw.PreferencesGroup();
@@ -53,7 +53,7 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		// Page 2: Notifications
 		var page_notifications = new Adw.PreferencesPage();
 		page_notifications.title = _("Notifications");
-		page_notifications.icon_name = "preferences-desktop-notification-symbolic";
+		page_notifications.icon_name = "preferences-system-notifications-symbolic";
 		add(page_notifications);
 
 		var group_notify = new Adw.PreferencesGroup();

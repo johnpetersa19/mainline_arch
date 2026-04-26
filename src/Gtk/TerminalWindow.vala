@@ -124,7 +124,7 @@ public class TerminalWindow : Adw.Window {
 			App.term_width = get_width();
 			App.term_height = get_height();
 			App.term_font_scale = term.font_scale;
-			destroy();
+			close();
 		});
 		hbox.append(btn_close);
 
