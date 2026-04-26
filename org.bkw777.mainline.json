@@ -1,19 +1,21 @@
 {
-    "app-id" : "org.bkw777.mainline",
-    "runtime" : "org.gnome.Platform",
-    "runtime-version" : "44",
-    "sdk" : "org.gnome.Sdk",
-    "command" : "mainline-gtk",
-    "finish-args" : [
+    "app-id": "org.bkw777.mainline",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "50",
+    "sdk": "org.gnome.Sdk",
+    "command": "mainline-gtk",
+    "finish-args": [
         "--share=network",
         "--share=ipc",
         "--socket=fallback-x11",
         "--socket=wayland",
         "--device=dri",
         "--filesystem=host",
-        "--talk-name=org.freedesktop.Flatpak"
+        "--filesystem=xdg-config/fontconfig:ro",
+        "--talk-name=org.freedesktop.Flatpak",
+        "--talk-name=org.freedesktop.portal.Desktop"
     ],
-    "cleanup" : [
+    "cleanup": [
         "/include",
         "/lib/pkgconfig",
         "/man",
@@ -24,41 +26,136 @@
         "*.la",
         "*.a"
     ],
-    "modules" : [
+    "modules": [
         {
-            "name": "vte-2.91",
+            "name": "libgee",
+            "buildsystem": "autotools",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.gnome.org/GNOME/libgee.git",
+                    "tag": "0.20.8",
+                    "commit": "d2e135e98718e37cae04599689fea8fb145b0b74"
+                }
+            ]
+        },
+        {
+            "name": "simdutf",
+            "buildsystem": "cmake-ninja",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/simdutf/simdutf.git",
+                    "tag": "v9.0.0",
+                    "commit": "ca7acbcea967b5dcbab490066e99e3a6e6925539"
+                }
+            ]
+        },
+        {
+            "name": "fast_float",
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DFASTFLOAT_TEST=OFF"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/fastfloat/fast_float.git",
+                    "tag": "v8.2.4",
+                    "commit": "eb9ab42c0aa86d3cc41871ba7306527d95077b3b"
+                }
+            ]
+        },
+        {
+            "name": "libsass",
+            "buildsystem": "simple",
+            "build-commands": [
+                "autoreconf -fiv",
+                "./configure --prefix=/app --disable-static --enable-shared",
+                "make -j$FLATPAK_BUILDER_NJOBS",
+                "make install"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/sass/libsass.git",
+                    "tag": "3.6.6",
+                    "commit": "7037f03fabeb2b18b5efa84403f5a6d7a990f460"
+                }
+            ]
+        },
+        {
+            "name": "sassc",
+            "buildsystem": "simple",
+            "build-commands": [
+                "autoreconf -fiv",
+                "./configure --prefix=/app",
+                "make -j$FLATPAK_BUILDER_NJOBS",
+                "make install"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/sass/sassc.git",
+                    "tag": "3.6.2",
+                    "commit": "66f0ef37e7f0ad3a65d2f481eff09d09408f42d0"
+                }
+            ]
+        },
+        {
+            "name": "libadwaita",
             "buildsystem": "meson",
             "config-opts": [
-                "-Dgtk3=true",
-                "-Dgtk4=false",
+                "-Dintrospection=disabled",
                 "-Dvapi=true",
-                "-Dgir=true"
+                "-Dtests=false",
+                "-Dexamples=false"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.gnome.org/GNOME/libadwaita.git",
+                    "tag": "1.7.0",
+                    "commit": "2600e791e2aa070711c0bb3981baea514217779d"
+                }
+            ]
+        },
+        {
+            "name": "vte",
+            "buildsystem": "meson",
+            "config-opts": [
+                "-Dgtk3=false",
+                "-Dgtk4=true",
+                "-Dvapi=true",
+                "-Dgir=true",
+                "-Dgnutls=true",
+                "-Dicu=true"
             ],
             "sources": [
                 {
                     "type": "git",
                     "url": "https://gitlab.gnome.org/GNOME/vte.git",
-                    "tag": "0.74.2",
-                    "commit": "3f66edbf598129bafde3baa91ccfb345056418c3"
+                    "tag": "0.84.0",
+                    "commit": "5da1ed34b210f2b000ef954c147f9a1391da363b"
                 }
             ]
         },
         {
-            "name" : "mainline",
-            "builddir" : true,
-            "buildsystem" : "meson",
-            "sources" : [
+            "name": "mainline",
+            "builddir": true,
+            "buildsystem": "meson",
+            "sources": [
                 {
-                    "type" : "dir",
-                    "path" : "."
+                    "type": "dir",
+                    "path": "."
                 }
             ],
-            "config-opts" : [
+            "config-opts": [
                 "--libdir=lib"
             ]
         }
     ],
-    "build-options" : {
-        "env" : {        }
+    "build-options": {
+        "env": {}
     }
 }

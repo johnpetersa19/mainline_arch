@@ -20,32 +20,30 @@
  */
 
 using l_misc;
+using Adw;
 
 public Main App;
 
-public class AppGtk : GLib.Object {
+public class AppGtk : Adw.Application {
+
+	public AppGtk() {
+		Object(application_id: "org.bkw777.mainline", flags: ApplicationFlags.DEFAULT_FLAGS);
+	}
+
+	protected override void activate() {
+		var win = active_window ?? new MainWindow(this);
+		win.present();
+	}
 
 	public static int main(string[] argv) {
+		Gdk.set_allowed_backends("wayland,x11,*");
 		App = new Main();
 		App.gui_mode = true;
 		parse_arguments(argv);
 		vprint(string.joinv(" ",argv),3);
 		App.init2();
 
-		X.init_threads();
-		Gtk.init(ref argv);
-		new MainWindow();
-
-		Gtk.main();
-
-		// window size basically always changes slightly even if you don't touch anything,
-		// so don't bother detecting changes, just always re-write the config file on exit
-		var x = App.RUN_NOTIFY_SCRIPT;  // save whether run_notify was already pending
-		App.save_app_config();          // this sets run_notify blindly but we don't need that just for window size change
-		App.RUN_NOTIFY_SCRIPT = x;      // restore the original pending/not-pending state
-		App.run_notify_script_if_due(); // in case it was pending and somehow missed along the way
-
-		return 0;
+		return new AppGtk().run(argv);
 	}
 
 	public static bool parse_arguments(string[] args) {
@@ -102,14 +100,10 @@ public class AppGtk : GLib.Object {
 		return true;
 	}
 
-	public static void alert(Gtk.Window win, string msg, Gtk.MessageType type = Gtk.MessageType.INFO) {
-		var dlg = new Gtk.MessageDialog(win,
-			Gtk.DialogFlags.MODAL,
-			type,
-			Gtk.ButtonsType.OK,
-			msg);
-		dlg.response.connect(() => { dlg.destroy(); });
-		dlg.show();
+	public static void alert(Gtk.Window win, string msg) {
+		var dialog = new Adw.AlertDialog(_("Information"), msg);
+		dialog.add_response("ok", _("OK"));
+		dialog.present(win);
 	}
 
 }

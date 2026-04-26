@@ -292,7 +292,7 @@ public class AppConsole : GLib.Object {
 		if (cmd=="list-installed") {
 			Package.mk_dpkg_list();
 			vprint(_("Installed Kernels")+":");
-			foreach (var p in Package.dpkg_list) if (p.name.has_prefix("linux-image-") || p.name == "linux") vprint(p.name);
+			foreach (var p in Package.dpkg_list) if (p.name.has_prefix("linux-image-") || p.name == "linux") vprint(p.name + " " + p.vers);
 			return 0;
 		}
 		if (cmd=="notify") {

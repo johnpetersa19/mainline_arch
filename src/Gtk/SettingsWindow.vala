@@ -1,339 +1,175 @@
-
+using Gtk;
+using Adw;
 using l_misc;
 
-public class SettingsWindow : Gtk.Window {
+public class SettingsWindow : Adw.PreferencesDialog {
 
-	public SettingsWindow(Gtk.Window parent) {
+	public SettingsWindow() {
+		Object(title: BRANDING_LONGNAME + " " + _("Configuration"));
 
-		const int SPACING = 6;
+		// Page 1: Filters
+		var page_filters = new Adw.PreferencesPage();
+		page_filters.title = _("Filters");
+		page_filters.icon_name = "view-filter-symbolic";
+		add(page_filters);
 
-		this.set_transient_for(parent);
-		this.set_modal(true);
-		this.title = BRANDING_LONGNAME + " " +_("Configuration");
-		this.window_position = Gtk.WindowPosition.CENTER_ON_PARENT;
+		var group_filters = new Adw.PreferencesGroup();
+		group_filters.title = _("General Filters");
+		page_filters.add(group_filters);
 
-		// vbox_main holds the notebook and the close button
-		var vbox_main = new Gtk.Box(Gtk.Orientation.VERTICAL,0);
-		this.add(vbox_main);
+		// Hide RC/Unstable
+		var row_hide_unstable = new Adw.SwitchRow();
+		row_hide_unstable.title = _("Hide RC and unstable releases");
+		row_hide_unstable.active = App.hide_unstable;
+		row_hide_unstable.notify["active"].connect(() => { App.hide_unstable = row_hide_unstable.active; });
+		group_filters.add(row_hide_unstable);
 
-		// notebook holds a page for each settings section
-		var notebook = new Gtk.Notebook();
-		vbox_main.add(notebook);
+		// Hide Invalid
+		var row_hide_invalid = new Adw.SwitchRow();
+		row_hide_invalid.title = _("Hide failed or incomplete builds");
+		row_hide_invalid.subtitle = _("Only show builds compatible with your architecture (%s)").printf(LinuxKernel.NATIVE_ARCH);
+		row_hide_invalid.active = App.hide_invalid;
+		row_hide_invalid.notify["active"].connect(() => { App.hide_invalid = row_hide_invalid.active; });
+		group_filters.add(row_hide_invalid);
 
-		// close button outside of notebook always visible
-		var btn_close = new Gtk.Button.with_label(_("Done"));
-		vbox_main.add(btn_close);
-		btn_close.clicked.connect(close);
+		// Hide Flavors
+		var row_hide_flavors = new Adw.SwitchRow();
+		row_hide_flavors.title = _("Hide flavors other than %s").printf("\"generic\"");
+		row_hide_flavors.active = App.hide_flavors;
+		row_hide_flavors.notify["active"].connect(() => { App.hide_flavors = row_hide_flavors.active; });
+		group_filters.add(row_hide_flavors);
 
-		// fill the notebook pages
-		Gtk.Box pgbox;
-		Gtk.Box hbox;
-		Gtk.Label pgtitle;
-		Gtk.Label label;
+		// Prior major versions
+		var row_prior_majors = new Adw.ActionRow();
+		row_prior_majors.title = _("Show prior major versions");
+		row_prior_majors.subtitle = _("(-1 = all)");
+		var spin_prior = new Gtk.SpinButton.with_range(-1, 100, 1);
+		spin_prior.value = App.previous_majors;
+		spin_prior.valign = Gtk.Align.CENTER;
+		spin_prior.changed.connect(() => { App.previous_majors = (int)spin_prior.value; });
+		row_prior_majors.add_suffix(spin_prior);
+		group_filters.add(row_prior_majors);
 
-		//==============================================================
-		// Page 1 - FILTERS
-		//==============================================================
+		// Page 2: Notifications
+		var page_notifications = new Adw.PreferencesPage();
+		page_notifications.title = _("Notifications");
+		page_notifications.icon_name = "preferences-desktop-notification-symbolic";
+		add(page_notifications);
 
-		//pgtitle = new Gtk.Label("<b>" + _("Filters") + "</b>");
-		//pgtitle.set_use_markup(true);
-		pgtitle = new Gtk.Label(_("Filter"));
-		pgbox = new Gtk.Box(Gtk.Orientation.VERTICAL,SPACING);
-		notebook.append_page(pgbox,pgtitle);
-		pgbox.spacing = SPACING;
-		pgbox.margin = SPACING*2;
+		var group_notify = new Adw.PreferencesGroup();
+		group_notify.title = _("Notification Settings");
+		page_notifications.add(group_notify);
 
-		// hide unstable
-		var chk_hide_rc = new Gtk.CheckButton.with_label(_("Hide RC and unstable releases"));
-		pgbox.add(chk_hide_rc);
-		//chk_hide_rc.set_tooltip_text(_("..."));
-		chk_hide_rc.active = App.hide_unstable;
-		chk_hide_rc.toggled.connect(()=>{ App.hide_unstable = chk_hide_rc.active; });
+		var row_notify_major = new Adw.SwitchRow();
+		row_notify_major.title = _("Notify if a major release is available");
+		row_notify_major.active = App.notify_major;
+		row_notify_major.notify["active"].connect(() => { App.notify_major = row_notify_major.active; });
+		group_notify.add(row_notify_major);
 
-		// hide invalid
-		var chk_hide_invalid = new Gtk.CheckButton.with_label(_("Hide failed or incomplete builds"));
-		pgbox.add(chk_hide_invalid);
-		chk_hide_invalid.set_tooltip_text(
-			_("If a kernel version exists on the mainline-ppa site, but is an incomplete or failed build for your arch (%s), then don't show it in the list.").printf(LinuxKernel.NATIVE_ARCH)
-		);
-		chk_hide_invalid.active = App.hide_invalid;
-		chk_hide_invalid.toggled.connect(()=>{ App.hide_invalid = chk_hide_invalid.active; });
+		var row_notify_minor = new Adw.SwitchRow();
+		row_notify_minor.title = _("Notify if a minor release is available");
+		row_notify_minor.active = App.notify_minor;
+		row_notify_minor.notify["active"].connect(() => { App.notify_minor = row_notify_minor.active; });
+		group_notify.add(row_notify_minor);
 
-		// hide flavors
-		var chk_hide_flavors = new Gtk.CheckButton.with_label(_("Hide flavors other than %s").printf("\"generic\""));
-		pgbox.add(chk_hide_flavors);
-		chk_hide_flavors.set_tooltip_text(
-			_("Don't show the alternative flavors such as %s and %s").printf("\"lowlatency\"","\"generic-64k\"")
-		);
-		chk_hide_flavors.active = App.hide_flavors;
-		chk_hide_flavors.toggled.connect(()=>{ App.hide_flavors = chk_hide_flavors.active; });
+		// Check interval
+		var row_interval = new Adw.ActionRow();
+		row_interval.title = _("Check every");
+		var spin_interval = new Gtk.SpinButton.with_range(1, 100, 1);
+		spin_interval.value = App.notify_interval_value;
+		spin_interval.valign = Gtk.Align.CENTER;
+		spin_interval.changed.connect(() => { App.notify_interval_value = (int)spin_interval.value; });
+		row_interval.add_suffix(spin_interval);
 
-		// show prior versions
-		hbox = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
-		pgbox.add(hbox);
-		label = new Gtk.Label(_("Show"));
-		hbox.add(label);
-		var adj_show_prior = new Gtk.Adjustment(App.previous_majors, -1, LinuxKernel.kernel_latest_available.version_major , 1, 1, 0);
-		var spn_show_prior = new Gtk.SpinButton (adj_show_prior, 1, 0);
-		hbox.add(spn_show_prior);
-		spn_show_prior.changed.connect(()=>{ App.previous_majors = (int)spn_show_prior.get_value(); });
-		label = new Gtk.Label(_("prior major versions  ( -1 = all )"));
-		hbox.add(label);
-		//hbox.set_tooltip_text(_("...show previous majors tooltip text..."));
+		// Replace ComboBoxText with DropDown + StringList
+		var units_list = new Gtk.StringList(null);
+		units_list.append(_("Hours"));
+		units_list.append(_("Days"));
+		units_list.append(_("Weeks"));
+		var combo_units = new Gtk.DropDown(units_list, null);
+		combo_units.selected = (uint)App.notify_interval_unit;
+		combo_units.valign = Gtk.Align.CENTER;
+		combo_units.notify["selected"].connect(() => { App.notify_interval_unit = (int)combo_units.selected; });
+		row_interval.add_suffix(combo_units);
+		group_notify.add(row_interval);
 
-		//==============================================================
-		// Page 2 - NOTIFICATIONS
-		//==============================================================
+		// Page 3: Network
+		var page_network = new Adw.PreferencesPage();
+		page_network.title = _("Network");
+		page_network.icon_name = "network-workgroup-symbolic";
+		add(page_network);
 
-		pgtitle = new Gtk.Label(_("Notification"));
-		pgbox = new Gtk.Box(Gtk.Orientation.VERTICAL,SPACING);
-		notebook.append_page(pgbox,pgtitle);
-		pgbox.spacing = SPACING;
-		pgbox.margin = SPACING*2;
+		var group_network = new Adw.PreferencesGroup();
+		group_network.title = GLib.Markup.escape_text(_("Download & Connection"));
+		page_network.add(group_network);
 
-		// notify major
-		var chk_notify_major = new Gtk.CheckButton.with_label(_("Notify if a major release is available"));
-		pgbox.add(chk_notify_major);
-		chk_notify_major.active = App.notify_major;
-		chk_notify_major.toggled.connect(()=>{ App.notify_major = chk_notify_major.active; });
+		// Timeout
+		var row_timeout = new Adw.ActionRow();
+		row_timeout.title = _("Connection Timeout (seconds)");
+		var spin_timeout = new Gtk.SpinButton.with_range(1, 600, 1);
+		spin_timeout.value = App.connect_timeout_seconds;
+		spin_timeout.valign = Gtk.Align.CENTER;
+		spin_timeout.changed.connect(() => { App.connect_timeout_seconds = (int)spin_timeout.value; });
+		row_timeout.add_suffix(spin_timeout);
+		group_network.add(row_timeout);
 
-		// notify minor
-		var chk_notify_minor = new Gtk.CheckButton.with_label(_("Notify if a minor release is available"));
-		pgbox.add(chk_notify_minor);
-		chk_notify_minor.active = App.notify_minor;
-		chk_notify_minor.toggled.connect(()=>{ App.notify_minor = chk_notify_minor.active; });
+		// Concurrent Downloads
+		var row_concurrent = new Adw.ActionRow();
+		row_concurrent.title = _("Concurrent Downloads");
+		var spin_concurrent = new Gtk.SpinButton.with_range(1, 25, 1);
+		spin_concurrent.value = App.concurrent_downloads;
+		spin_concurrent.valign = Gtk.Align.CENTER;
+		spin_concurrent.changed.connect(() => { App.concurrent_downloads = (int)spin_concurrent.value; });
+		row_concurrent.add_suffix(spin_concurrent);
+		group_network.add(row_concurrent);
 
-		// notification interval
-		if (Main.VERBOSE>1) {
-			label = new Gtk.Label("( VERBOSE="+Main.VERBOSE.to_string()+" : "+_("Seconds interval enabled for debugging")+" )");
-			pgbox.add(label);
-			label.xalign = 0;
-		}
-		// replace invalid debug-only values with valid values
-		int max_intervals = 52;
-		if (Main.VERBOSE>1) {
-			// debug allows seconds, allow up to 1 hour of seconds
-			max_intervals = 3600;
-		} else {
-			if (App.notify_interval_unit == 3) {
-				App.notify_interval_value = DEFAULT_NOTIFY_INTERVAL_VALUE;
-				App.notify_interval_unit = DEFAULT_NOTIFY_INTERVAL_UNIT;
-			}
-		}
-		//
-		hbox = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
-		pgbox.add(hbox);
-		//
-		label = new Gtk.Label(_("Check every"));
-		hbox.add(label);
-		// value
-		var adj_interval = new Gtk.Adjustment(App.notify_interval_value, 1, max_intervals, 1, 1, 0);
-		var spn_interval = new Gtk.SpinButton(adj_interval, 1, 0);
-		hbox.add(spn_interval);
-		spn_interval.changed.connect(()=>{ App.notify_interval_value = (int)spn_interval.get_value(); });
-		// units
-		var cbt_units = new Gtk.ComboBoxText();
-		hbox.add(cbt_units);
-		cbt_units.append_text(_("Hours"));
-		cbt_units.append_text(_("Days"));
-		cbt_units.append_text(_("Weeks"));
-		if (Main.VERBOSE>1) cbt_units.append_text(_("Seconds"));
-		cbt_units.active = App.notify_interval_unit;
-		cbt_units.changed.connect(() => { App.notify_interval_unit = cbt_units.active; });
-		//hbox.set_tooltip_text(_("...notification interval tooltip text..."));
+		// Checksums
+		var row_checksums = new Adw.SwitchRow();
+		row_checksums.title = _("Verify Checksums");
+		row_checksums.active = App.verify_checksums;
+		row_checksums.notify["active"].connect(() => { App.verify_checksums = row_checksums.active; });
+		group_network.add(row_checksums);
 
-		//==============================================================
-		// Page 3 - NETWORK
-		//==============================================================
+		// Page 4: Advanced
+		var page_advanced = new Adw.PreferencesPage();
+		page_advanced.title = _("Advanced");
+		page_advanced.icon_name = "preferences-system-symbolic";
+		add(page_advanced);
 
-		pgtitle = new Gtk.Label(_("Network"));
-		pgbox = new Gtk.Box(Gtk.Orientation.VERTICAL,SPACING);
-		notebook.append_page(pgbox,pgtitle);
-		pgbox.spacing = SPACING;
-		pgbox.margin = SPACING*2;
+		var group_urls = new Adw.PreferencesGroup();
+		group_urls.title = GLib.Markup.escape_text(_("URLs & User Agent"));
+		page_advanced.add(group_urls);
 
-        // connect timeout
-		hbox = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
-		pgbox.add(hbox);
-		//
-		label = new Gtk.Label(_("Connection Timeout:"));
-		hbox.add(label);
-		//
-		var adj_ict = new Gtk.Adjustment(App.connect_timeout_seconds, 1, 60, 1, 1, 0);
-		var spn_ict = new Gtk.SpinButton (adj_ict, 1, 0);
-		hbox.add(spn_ict);
-		spn_ict.changed.connect(()=>{ App.connect_timeout_seconds = (int)spn_ict.get_value(); });
-		//
-		label = new Gtk.Label(_("seconds"));
-		hbox.add(label);
-		//hbox.set_tooltip_text(_("...http connect timeout tooltip text..."));
+		// PPA URL
+		var row_ppa = new Adw.EntryRow();
+		row_ppa.title = _("Mainline-PPA URL");
+		row_ppa.text = App.ppa_uri;
+		row_ppa.notify["text"].connect(() => { App.ppa_uri = row_ppa.text.strip(); });
+		group_urls.add(row_ppa);
 
-		// concurrent downloads
-		hbox = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
-		pgbox.add (hbox);
-		//
-		label = new Gtk.Label(_("Concurrent Downloads:"));
-		hbox.add(label);
-		//
-		var adj_pdl = new Gtk.Adjustment(App.concurrent_downloads, 1, 25, 1, 1, 0);
-		var spn_pdl = new Gtk.SpinButton (adj_pdl, 1, 0);
-		hbox.add(spn_pdl);
-		spn_pdl.changed.connect(()=>{ App.concurrent_downloads = (int)spn_pdl.get_value(); });
-		//hbox.set_tooltip_text(_("...concurrent downloads tooltip text..."));
+		// User Agent
+		var row_ua = new Adw.EntryRow();
+		row_ua.title = _("User Agent String");
+		row_ua.text = App.user_agent;
+		row_ua.notify["text"].connect(() => { App.user_agent = row_ua.text.strip(); });
+		group_urls.add(row_ua);
 
-		// verify checksums
-		var chk_checksums = new Gtk.CheckButton.with_label(_("Verify Checksums"));
-		pgbox.add(chk_checksums);
-		chk_checksums.active = App.verify_checksums;
-		chk_checksums.set_tooltip_text(_("Use the sha-256 hashes from the CHECKSUMS file to verify the *.deb file downloads."));
-		chk_checksums.toggled.connect(()=>{ App.verify_checksums = chk_checksums.active; });
+		var group_commands = new Adw.PreferencesGroup();
+		group_commands.title = _("External Commands");
+		page_advanced.add(group_commands);
 
-		// keep downloads
-		var chk_keep_debs = new Gtk.CheckButton.with_label(_("Keep Debs"));
-		pgbox.add(chk_keep_debs);
-		chk_keep_debs.set_tooltip_text(
-			_("Retain downloaded *.deb files after install and re-use them for uninstall/reinstall instead of downloading again.") + "\n"
-			+ "\n"
-			+ _("They are still deleted once they become older than the \"prior major versions\" setting, or if they have been updated on the mainline-ppa site.")
-		);
-		chk_keep_debs.active = App.keep_debs;
-		chk_keep_debs.toggled.connect(()=>{ App.keep_debs = chk_keep_debs.active; });
+		// Auth Command
+		var row_auth = new Adw.EntryRow();
+		row_auth.title = _("Superuser Authorization");
+		row_auth.text = App.auth_cmd;
+		row_auth.notify["text"].connect(() => { App.auth_cmd = row_auth.text.strip(); });
+		group_commands.add(row_auth);
 
-		// keep cache
-		var chk_keep_cache = new Gtk.CheckButton.with_label(_("Keep Cache"));
-		pgbox.add(chk_keep_cache);
-		chk_keep_cache.set_tooltip_text(
-			_("Don't trim the cached index.html files to just the installed versions and higher, instead essentially maintain a local mirror of the entire history from the mainline-ppa site.") + "\n"
-			+ "\n"
-			+ _("This speeds up some things a little at the cost of about 20M of hard drive space.") + "\n"
-			+ _("It skips a step on every startup that loops through all known kernel versions just to see if there are any old ones to delete, and avoids deleting and re-downloading the same files if you change the \"prior major versions\" setting up and down.") + "\n"
-			+ "\n"
-			+ _("As of 6.5.x a full cache is about 22M, and a trimmed cache is about 2M.")
-		);
-		chk_keep_cache.active = App.keep_cache;
-		chk_keep_cache.toggled.connect(()=>{ App.keep_cache = chk_keep_cache.active; });
-
-		// proxy
-		label = new Gtk.Label(_("Proxy"));
-		pgbox.add(label);
-		label.xalign = 0;
-
-		var ent_proxy = new Gtk.Entry ();
-		pgbox.add(ent_proxy);
-		ent_proxy.set_placeholder_text("[http://][USER:PASSWORD@]HOST[:PORT]");
-		//ent_proxy.set_tooltip_text(_("..."));
-		ent_proxy.set_text(App.all_proxy);
-		ent_proxy.activate.connect(()=>{ App.all_proxy = ent_proxy.get_text(); });
-
-		// ppa url
-		label = new Gtk.Label(_("Mainline-PPA URL"));
-		pgbox.add(label);
-		label.xalign = 0;
-
-		var ent_ppaurl = new Gtk.Entry ();
-		pgbox.add(ent_ppaurl);
-		//ent_ppaurl.set_tooltip_text(_("..."));
-		ent_ppaurl.set_text(App.ppa_uri);
-		ent_ppaurl.activate.connect(()=>{
-			App.ppa_uri = ent_ppaurl.get_text().strip();
-			if (App.ppa_uri=="") {
-				App.ppa_uri = DEFAULT_PPA_URI;
-				ent_ppaurl.set_text(App.ppa_uri);
-			}
-		});
-
-		// user-agent
-		label = new Gtk.Label(_("User Agent String"));
-		pgbox.add(label);
-		label.xalign = 0;
-
-		var ent_useragent = new Gtk.Entry ();
-		pgbox.add(ent_useragent);
-		//ent_useragent.set_placeholder_text("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0");
-		//ent_useragent.set_tooltip_text(_("The mainline-ppa site currently blocks traffic from Aria (the http client we use to download files), so use this http client user-agent string instead of Arias normal string."));
-		ent_useragent.set_text(App.user_agent);
-		ent_useragent.activate.connect(()=>{ App.user_agent = ent_useragent.get_text(); });
-
-		//==============================================================
-		// Page 4 - EXTERNAL COMMANDS
-		//==============================================================
-
-		pgtitle = new Gtk.Label(_("External Commands"));
-		pgbox = new Gtk.Box(Gtk.Orientation.VERTICAL,SPACING);
-		notebook.append_page(pgbox,pgtitle);
-		pgbox.spacing = SPACING;
-		pgbox.margin = SPACING*2;
-
-		// auth command
-		label = new Gtk.Label(_("Superuser Authorization"));
-		pgbox.add(label);
-		label.xalign = 0;
-
-		var cbt_authcmd = new Gtk.ComboBoxText.with_entry();
-		pgbox.add(cbt_authcmd);
-		cbt_authcmd.active = -1;
-		for (int i=0;i<DEFAULT_AUTH_CMDS.length;i++) {
-			cbt_authcmd.append_text(DEFAULT_AUTH_CMDS[i]);
-			if (App.auth_cmd == DEFAULT_AUTH_CMDS[i]) cbt_authcmd.active = i;
-		}
-		if (cbt_authcmd.active<0) {
-			cbt_authcmd.append_text(App.auth_cmd);
-			cbt_authcmd.active = DEFAULT_AUTH_CMDS.length;
-		} else {
-			cbt_authcmd.append_text("");
-		}
-		cbt_authcmd.changed.connect(() => {
-			string s = cbt_authcmd.get_active_text().strip();
-			if (s != App.auth_cmd) App.auth_cmd = s;
-		});
-		cbt_authcmd.set_tooltip_text(
-			_("Command used to run pacman with root permissions.") + "\n"
-			+ "\n"
-			+ /* xgettext:no-c-format */ _("The pacman command is appended to the end, unless a %s is present.") + "\n"
-			+ /* xgettext:no-c-format */ _("If a %s is present, then the %s is replaced with the pacman command.") + "\n"
-			+ _("The built-in list contains examples of both.") +"\n"
-			+ "\n"
-			+ _("To modify any of the built-in default commands, just select it and edit.") + "\n"
-			+ _("The edited command is saved in the config file, the original is not changed.")
-		);
-
-		// xterm command
-		label = new Gtk.Label(_("Terminal Window"));
-		pgbox.add(label);
-		label.xalign = 0;
-
-		var cbt_termcmd = new Gtk.ComboBoxText.with_entry();
-		pgbox.add(cbt_termcmd);
-		cbt_termcmd.active = -1;
-		for (int i=0;i<DEFAULT_TERM_CMDS.length;i++) {
-			cbt_termcmd.append_text(DEFAULT_TERM_CMDS[i]);
-			if (App.term_cmd == DEFAULT_TERM_CMDS[i]) cbt_termcmd.active = i;
-		}
-		if (cbt_termcmd.active<0) {
-			cbt_termcmd.append_text(App.term_cmd);
-			cbt_termcmd.active = DEFAULT_TERM_CMDS.length;
-		} else {
-			cbt_termcmd.append_text("");
-		}
-		cbt_termcmd.changed.connect(() => {
-			string s = cbt_termcmd.get_active_text().strip();
-			if (s != App.term_cmd) App.term_cmd = s;
-		});
-		cbt_termcmd.set_tooltip_text(
-			_("Terminal command used to run")+" \""+BRANDING_SHORTNAME+" install|uninstall ...\"\n"
-			+ "\n"
-			+ /* xgettext:no-c-format */ _("The install/uninstall command is appended to the end, unless a %s is present.") + "\n"
-			+ /* xgettext:no-c-format */ _("If a %s is present, then the %s is replaced with the install/uninstall command.") + "\n"
-			+ _("The built-in list contains examples of both.") + "\n"
-			+ "\n"
-			+ _("The terminal program must stay in the foreground and block while the command is running, not fork and return immediately.") + "\n"
-			+ _("Most terminal programs block by default, some require special commandline options.") + "\n"
-			+ _("For example, %s requires \"%s\".").printf("gnome-terminal","--wait") + "\n"
-			+ "\n"
-			+ _("To modify any of the built-in default commands, just select it and edit.") + "\n"
-			+ _("The edited command is saved in the config file, the original is not changed.")
-		);
-
+		// Terminal Command
+		var row_term = new Adw.EntryRow();
+		row_term.title = _("Terminal Window");
+		row_term.text = App.term_cmd;
+		row_term.notify["text"].connect(() => { App.term_cmd = row_term.text.strip(); });
+		group_commands.add(row_term);
 	}
-
 }

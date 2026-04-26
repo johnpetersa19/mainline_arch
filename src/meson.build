@@ -7,8 +7,9 @@ posix_dep = meson.get_compiler('vala').find_library('posix')
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
 
-gtk_dep = dependency('gtk+-3.0')
-vte_dep = dependency('vte-2.91')
+gtk_dep = dependency('gtk4')
+adw_dep = dependency('libadwaita-1')
+vte_dep = dependency('vte-2.91-gtk4')
 x11_dep = dependency('x11')
 
 common_sources = files([
@@ -41,6 +42,6 @@ executable('mainline',
 
 executable('mainline-gtk',
   common_sources + gtk_sources,
-  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, gtk_dep, vte_dep, x11_dep, m_dep],
+  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, gtk_dep, adw_dep, vte_dep, x11_dep, m_dep],
   install: true
 )

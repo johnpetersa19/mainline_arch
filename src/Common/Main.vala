@@ -230,8 +230,6 @@ public class Main : Application {
 	}
 
 	public void init2() {
-		if (!Thread.supported()) { vprint(_("Missing threads support in GLib."),1,stderr); exit(1); }
-
 		auth_cmd = wrap_host_cmd(auth_cmd);
 		term_cmd = wrap_host_cmd(term_cmd);
 

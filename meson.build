@@ -5,6 +5,11 @@ project('mainline', ['vala', 'c'],
 
 prefix = get_option('prefix')
 c_args = [
+  # Suppress warnings from Vala-generated C code (not fixable in Vala source)
+  '-Wno-unused-variable',
+  '-Wno-unused-but-set-variable',
+  '-Wno-pointer-sign',
+  '-Wno-deprecated-declarations',
   '-DINSTALL_PREFIX="' + prefix + '"',
   '-DBRANDING_SHORTNAME="mainline"',
   '-DBRANDING_LONGNAME="Mainline Kernels"',
@@ -24,10 +29,8 @@ c_args += '-DTRANSLATORS="' + translators + '"'
 add_project_arguments(c_args, language: 'c')
 
 vala_args = [
-  '--target-glib=2.32',
+  '--target-glib=2.86',
   '-D', 'GLIB_JSON_1_6',
-  '-D', 'VTE_0_72',
-  '-D', 'VTE_0_66'
 ]
 add_project_arguments(vala_args, language: 'vala')
 

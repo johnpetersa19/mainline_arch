@@ -22,12 +22,12 @@
  */
 
 using Gtk;
+using Adw;
 
 using l_misc;
 using l_exec;
 
-public class MainWindow : Window {
-//public class MainWindow : ApplicationWindow {
+public class MainWindow : Adw.ApplicationWindow {
 
 	const int SPACING = 6;
 
@@ -39,255 +39,251 @@ public class MainWindow : Window {
 	Button btn_uninstall_old;
 	Button btn_reload;
 	Label lbl_info;
-	Spinner spn_info;
-	Gdk.Pixbuf pix_ubuntu;
-	Gdk.Pixbuf pix_mainline;
-	Gdk.Pixbuf pix_mainline_rc;
+	Gtk.Spinner spn_info;
+	Gdk.Texture? pix_ubuntu;
+	Gdk.Texture? pix_mainline;
+	Gdk.Texture? pix_mainline_rc;
 	Gdk.Cursor cursor_busy;
-	Gdk.Window? win = null;
 
 	bool updating;
 
 	Gee.ArrayList<LinuxKernel> selected_kernels;
-	Gtk.ListStore tm;
-	TreeView tv;
+	GLib.ListStore tm;
+	Gtk.SortListModel sort_model;
+	Gtk.MultiSelection sel_model;
+	Gtk.ColumnView tv;
 
-	enum TM {
-		INDEX,
-		KOBJ,
-		ICON,
-		VERSION,
-		LOCKED,
-		STATUS,
-		NOTES,
-		TOOLTIP,
-		N_COLS
-	}
+	public MainWindow(Adw.Application app) {
+		Object(application: app);
 
-	public MainWindow() {
-
-		destroy.connect(Gtk.main_quit);
-
-		set_default_size(App.window_width,App.window_height);
-		if (App.window_x>=0 && App.window_y>=0) move(App.window_x,App.window_y);
-
-		configure_event.connect ((event) => {
-			App.window_width = event.width;
-			App.window_height = event.height;
-			App.window_x = event.x;
-			App.window_y = event.y;
-			return false;
-		});
+		set_default_size(App.window_width, App.window_height);
 
 		title = BRANDING_LONGNAME;
-		set_default_icon_name(BRANDING_SHORTNAME);
-		try { set_default_icon(IconTheme.get_default().load_icon(BRANDING_SHORTNAME,48,0)); }
-		catch (Error e) { vprint(e.message,1,stderr); }
-		cursor_busy = new Gdk.Cursor.from_name(Gdk.Display.get_default(),"wait");
+		cursor_busy = new Gdk.Cursor.from_name("wait", null);
 
 		selected_kernels = new Gee.ArrayList<LinuxKernel>();
-		tm = new Gtk.ListStore(TM.N_COLS,
-			typeof(int),         // TM.INDEX
-			typeof(LinuxKernel), // TM.KOBJ
-			typeof(Gdk.Pixbuf),  // TM.ICON
-			typeof(string),      // TM.VERSION
-			typeof(bool),        // TM.LOCKED
-			typeof(string),      // TM.STATUS
-			typeof(string),      // TM.NOTES
-			typeof(string)       // TM.TOOLTIP
-		);
-		tv = new TreeView.with_model(tm);
+		tm = new GLib.ListStore(typeof(LinuxKernel));
+		sort_model = new Gtk.SortListModel(tm, null);
+		sel_model = new Gtk.MultiSelection(sort_model);
+		tv = new Gtk.ColumnView(sel_model);
 
 		try {
-			pix_ubuntu = new Gdk.Pixbuf.from_file(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/ubuntu-logo.png");
-			pix_mainline = new Gdk.Pixbuf.from_file(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux.png");
-			pix_mainline_rc = new Gdk.Pixbuf.from_file(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux-red.png");
-		} catch (Error e) { vprint(e.message,1,stderr); }
+			pix_ubuntu    = Gdk.Texture.from_filename(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/ubuntu-logo.png");
+			pix_mainline  = Gdk.Texture.from_filename(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux.png");
+			pix_mainline_rc = Gdk.Texture.from_filename(INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux-red.png");
+		} catch (Error e) { vprint(e.message, 1, stderr); }
 
 		vbox_main = new Box(Orientation.VERTICAL, SPACING);
-		vbox_main.margin = SPACING;
+		vbox_main.set_margin_start(SPACING);
+		vbox_main.set_margin_end(SPACING);
+		vbox_main.set_margin_top(SPACING);
+		vbox_main.set_margin_bottom(SPACING);
 
-		add(vbox_main);
+		set_content(vbox_main);
 
 		init_ui();
-		/*vprint("show_all()");*/ show_all();
-		win = get_window();
 		update_cache();
 	}
 
 	void init_ui() {
-		//vprint("init_ui()");
 		init_treeview();
 		init_actions();
 		init_infobar();
 	}
 
 	void init_treeview() {
-		//vprint("init_treeview()");
 		hbox_list = new Box(Orientation.HORIZONTAL, SPACING);
-		vbox_main.add(hbox_list);
+		vbox_main.append(hbox_list);
 
-		// add treeview
-		tv.get_selection().mode = SelectionMode.MULTIPLE;
-		tv.headers_visible = true;
-		tv.set_grid_lines(TreeViewGridLines.BOTH);
-		tv.expand = true;
+		tv.hexpand = true;
+		tv.vexpand = true;
+		tv.show_row_separators = true;
+		tv.show_column_separators = true;
 
-		tv.row_activated.connect(tv_row_activated);
+		tv.activate.connect((pos) => { set_button_state(); });
 
-		tv.get_selection().changed.connect(tv_selection_changed);
+		sel_model.selection_changed.connect((position, n_items) => {
+			tv_selection_changed();
+		});
 
-		var scrollwin = new ScrolledWindow(((Scrollable) tv).get_hadjustment(), ((Scrollable) tv).get_vadjustment());
-		scrollwin.set_shadow_type(ShadowType.ETCHED_IN);
-		scrollwin.add (tv);
-		hbox_list.add(scrollwin);
+		var scrollwin = new ScrolledWindow();
+		scrollwin.set_child(tv);
+		hbox_list.append(scrollwin);
 
-		// kernel icon & version
-		// sort on the index column not on the version column
-		// special version number sorting built by compare_to()
-		var col = new TreeViewColumn();
-		col.title = _("Kernel");
-		col.resizable = true;
-		col.set_sort_column_id(TM.INDEX);
-		col.min_width = 200;
-		tv.append_column(col);
-
-		var k_version_icon = new CellRendererPixbuf();
-		k_version_icon.xpad = SPACING;
-		col.pack_start(k_version_icon, false);
-		col.add_attribute(k_version_icon, "pixbuf", TM.ICON);
-
-		var k_version_text = new CellRendererText();
-		k_version_text.ellipsize = Pango.EllipsizeMode.END;
-		col.pack_start(k_version_text, true);
-		col.add_attribute(k_version_text, "text", TM.VERSION);
-
-		// locked
-		var k_lock_toggle = new CellRendererToggle();
-#if LOCK_TOGGLES_IN_KERNEL_COLUMN  // not sortable
-		col.pack_end(k_lock_toggle, false);
-#else                              // sortable
-		col = new TreeViewColumn();
-		col.set_sort_column_id(TM.LOCKED);
-		col.title = _("Lock");
-		col.pack_start(k_lock_toggle, false);
-		tv.append_column (col);
+		// ── Kernel column (icon + version label) ────────────────────────
+		var factory_kernel = new Gtk.SignalListItemFactory();
+		factory_kernel.setup.connect((obj) => {
+			var li = (Gtk.ListItem) obj;
+			var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
+			box.margin_start = SPACING;
+			box.margin_end   = SPACING;
+			var pic = new Gtk.Picture();
+			pic.can_shrink    = true;
+			pic.content_fit   = Gtk.ContentFit.CONTAIN;
+			pic.width_request  = 24;
+			pic.height_request = 24;
+			var lbl = new Gtk.Label("");
+			lbl.ellipsize = Pango.EllipsizeMode.END;
+			lbl.xalign    = 0;
+			lbl.hexpand   = true;
+			box.append(pic);
+			box.append(lbl);
+			li.set_child(box);
+		});
+		factory_kernel.bind.connect((obj) => {
+			var li  = (Gtk.ListItem) obj;
+			var k   = (LinuxKernel) li.get_item();
+			var box = (Gtk.Box) li.get_child();
+			var pic = (Gtk.Picture) box.get_first_child();
+			var lbl = (Gtk.Label) pic.get_next_sibling();
+			Gdk.Texture? p = pix_mainline;
+			if (k.is_unstable) p = pix_mainline_rc;
+			if (!k.is_mainline) p = pix_ubuntu;
+			pic.set_paintable(p);
+#if DISPLAY_VERSION_SORT
+			lbl.set_label(k.version_sort);
+#else
+			lbl.set_label(k.version_main);
 #endif
-		col.add_attribute(k_lock_toggle,"active", TM.LOCKED);
-		k_lock_toggle.toggled.connect((toggle,path) => {
-			TreeIter iter;
-			tm.get_iter_from_string(out iter, path);
-			LinuxKernel k;
-			tm.get(iter, TM.KOBJ, out k, -1);
-			k.set_locked(!toggle.active);
-			tm.set(iter, TM.LOCKED, k.is_locked);
-			tm.set(iter, TM.TOOLTIP, k.tooltip_text());
+			box.set_tooltip_text(k.tooltip_text());
 		});
 
-		// status
-		col = new TreeViewColumn();
-		col.title = _("Status");
-		col.set_sort_column_id(TM.STATUS);
-		col.resizable = true;
-		tv.append_column(col);
-		var k_status_text = new CellRendererText();
-		k_status_text.ellipsize = Pango.EllipsizeMode.END;
-		col.pack_start(k_status_text, false);
-		col.add_attribute(k_status_text, "text", TM.STATUS); // text from column 4
+		var col_kernel = new Gtk.ColumnViewColumn(_("Kernel"), factory_kernel);
+		col_kernel.resizable  = true;
+		col_kernel.expand     = true;
+		col_kernel.fixed_width = 200;
+		col_kernel.sorter = new Gtk.CustomSorter((a, b) => {
+			return ((LinuxKernel) a).compare_to((LinuxKernel) b);
+		});
+		tv.append_column(col_kernel);
 
-		// notes
-		col = new TreeViewColumn();
-		col.title = _("Notes");
-		col.set_sort_column_id(TM.NOTES);
-		col.resizable = true;
-		col.min_width = 200;
-		tv.append_column(col);
-		var k_notes_text = new CellRendererText();
-		k_notes_text.ellipsize = Pango.EllipsizeMode.END;
-		col.pack_start (k_notes_text, false);
-		col.add_attribute(k_notes_text, "text", TM.NOTES); // text from column 5
-		k_notes_text.editable = true;
-		k_notes_text.edited.connect((path, data) => {
-			TreeIter i;
-			LinuxKernel k;
-			tm.get_iter_from_string(out i, path);
-			tm.get(i, TM.KOBJ, out k, -1);
-			var t_old = k.notes.strip();
-			var t_new = data.strip();
-			if (t_old != t_new) {
-				k.set_notes(t_new);
-				tm.set(i, TM.NOTES, t_new);
-				tm.set(i, TM.TOOLTIP, k.tooltip_text());
-			}
+		// ── Lock column (checkbox toggle) ────────────────────────────────
+		var factory_lock = new Gtk.SignalListItemFactory();
+		factory_lock.setup.connect((obj) => {
+			var li = (Gtk.ListItem) obj;
+			var cb = new Gtk.CheckButton();
+			cb.halign = Gtk.Align.CENTER;
+			li.set_child(cb);
+			// connect once; read current item via closure over li
+			cb.toggled.connect(() => {
+				var k = li.get_item() as LinuxKernel;
+				if (k != null && cb.active != k.is_locked) {
+					k.set_locked(cb.active);
+					// refresh tooltip on kernel column widget
+				}
+			});
+		});
+		factory_lock.bind.connect((obj) => {
+			var li = (Gtk.ListItem) obj;
+			var k  = (LinuxKernel) li.get_item();
+			var cb = (Gtk.CheckButton) li.get_child();
+			// block signal temporarily so bind doesn't trigger toggled
+			GLib.SignalHandler.block_by_func(cb, (void*)on_lock_toggled_dummy, cb);
+			cb.active = k.is_locked;
+			GLib.SignalHandler.unblock_by_func(cb, (void*)on_lock_toggled_dummy, cb);
 		});
 
-		// tooltip
-		tv.set_tooltip_column(TM.TOOLTIP);
+		var col_lock = new Gtk.ColumnViewColumn(_("Lock"), factory_lock);
+		col_lock.sorter = new Gtk.CustomSorter((a, b) => {
+			int ia = ((LinuxKernel) a).is_locked ? 1 : 0;
+			int ib = ((LinuxKernel) b).is_locked ? 1 : 0;
+			return ia - ib;
+		});
+		tv.append_column(col_lock);
 
+		// ── Status column ────────────────────────────────────────────────
+		var factory_status = new Gtk.SignalListItemFactory();
+		factory_status.setup.connect((obj) => {
+			var li  = (Gtk.ListItem) obj;
+			var lbl = new Gtk.Label("");
+			lbl.xalign    = 0;
+			lbl.ellipsize = Pango.EllipsizeMode.END;
+			lbl.margin_start = SPACING;
+			lbl.margin_end   = SPACING;
+			li.set_child(lbl);
+		});
+		factory_status.bind.connect((obj) => {
+			var li  = (Gtk.ListItem) obj;
+			var k   = (LinuxKernel) li.get_item();
+			var lbl = (Gtk.Label) li.get_child();
+			lbl.set_label(k.status);
+			lbl.set_tooltip_text(k.tooltip_text());
+		});
+
+		var col_status = new Gtk.ColumnViewColumn(_("Status"), factory_status);
+		col_status.resizable = true;
+		col_status.sorter = new Gtk.CustomSorter((a, b) => {
+			return strcmp(((LinuxKernel) a).status, ((LinuxKernel) b).status);
+		});
+		tv.append_column(col_status);
+
+		// ── Notes column (inline editable) ──────────────────────────────
+		var factory_notes = new Gtk.SignalListItemFactory();
+		factory_notes.setup.connect((obj) => {
+			var li = (Gtk.ListItem) obj;
+			var el = new Gtk.EditableLabel("");
+			el.hexpand = true;
+			el.margin_start = SPACING;
+			el.margin_end   = SPACING;
+			li.set_child(el);
+			el.notify["editing"].connect(() => {
+				if (!el.editing) {
+					var k = li.get_item() as LinuxKernel;
+					if (k != null) {
+						var t_new = el.text.strip();
+						if (k.notes.strip() != t_new) {
+							k.set_notes(t_new);
+						}
+					}
+				}
+			});
+		});
+		factory_notes.bind.connect((obj) => {
+			var li = (Gtk.ListItem) obj;
+			var k  = (LinuxKernel) li.get_item();
+			var el = (Gtk.EditableLabel) li.get_child();
+			el.text = k.notes;
+			el.set_tooltip_text(k.tooltip_text());
+		});
+
+		var col_notes = new Gtk.ColumnViewColumn(_("Notes"), factory_notes);
+		col_notes.resizable   = true;
+		col_notes.expand      = true;
+		col_notes.fixed_width = 200;
+		col_notes.sorter = new Gtk.CustomSorter((a, b) => {
+			return strcmp(((LinuxKernel) a).notes, ((LinuxKernel) b).notes);
+		});
+		tv.append_column(col_notes);
+
+		// Wire up the ColumnView's built-in sorter to the SortListModel
+		sort_model.sorter = tv.sorter;
 	}
 
-	void tv_row_activated(TreePath path, TreeViewColumn column) {
-		set_button_state();
-	}
+	// Dummy function pointer used only for signal block/unblock by func
+	static void on_lock_toggled_dummy() {}
 
 	void tv_selection_changed() {
-		TreeModel model;
-		TreeIter iter;
-		var sel = tv.get_selection();
-		var paths = sel.get_selected_rows (out model);
-
 		selected_kernels.clear();
-		foreach (var path in paths) {
-			LinuxKernel k;
-			model.get_iter(out iter, path);
-			model.get(iter, 1, out k, -1);
-			selected_kernels.add(k);
+		uint n = sel_model.get_n_items();
+		for (uint i = 0; i < n; i++) {
+			if (sel_model.is_selected(i)) {
+				var k = sel_model.get_item(i) as LinuxKernel;
+				if (k != null) selected_kernels.add(k);
+			}
 		}
-
 		set_button_state();
 	}
 
 	void tv_refresh() {
-		//vprint("tv_refresh()",3);
-
-		int i = -1;
-		Gdk.Pixbuf p;
-		TreeIter iter;
-		tm.clear();
+		tm.remove_all();
 
 		foreach (var k in LinuxKernel.kernel_list) {
-
-			// apply filters, but don't hide any installed
 			if (!k.is_installed) {
-				if (k.is_invalid && App.hide_invalid) continue;
+				if (k.is_invalid  && App.hide_invalid)  continue;
 				if (k.is_unstable && App.hide_unstable) continue;
-				if (k.flavor!="generic" && App.hide_flavors) continue;
+				if (k.flavor != "generic" && App.hide_flavors) continue;
 			}
-
-			tm.append(out iter);
-
-			tm.set(iter, TM.INDEX, ++i); // saves the special sort built by compare_to()
-
-			tm.set(iter, TM.KOBJ, k);
-
-			p = pix_mainline;
-			if (k.is_unstable) p = pix_mainline_rc;
-			if (!k.is_mainline) p = pix_ubuntu;
-			tm.set(iter, TM.ICON, p);
-
-#if DISPLAY_VERSION_SORT
-			tm.set(iter, TM.VERSION, k.version_sort);
-#else
-			tm.set(iter, TM.VERSION, k.version_main);
-#endif
-
-			tm.set(iter, TM.LOCKED, k.is_locked);
-
-			tm.set(iter, TM.STATUS, k.status);
-
-			tm.set(iter, TM.NOTES, k.notes);
-
-			tm.set(iter, TM.TOOLTIP, k.tooltip_text());
+			tm.append(k);
 		}
 
 		selected_kernels.clear();
@@ -297,17 +293,17 @@ public class MainWindow : Window {
 	}
 
 	void set_button_state() {
-		btn_install.sensitive = false;
+		btn_install.sensitive   = false;
 		btn_uninstall.sensitive = false;
 
 		if (updating) {
 			btn_uninstall_old.sensitive = false;
-			btn_reload.sensitive = false;
+			btn_reload.sensitive        = false;
 			return;
 		}
 
 		btn_uninstall_old.sensitive = true;
-		btn_reload.sensitive = true;
+		btn_reload.sensitive        = true;
 
 		foreach (var k in selected_kernels) {
 			if (k.is_locked || k.is_running) continue;
@@ -317,148 +313,137 @@ public class MainWindow : Window {
 	}
 
 	void init_actions() {
-		//vprint("init_actions()");
-
 		Button button;
 
 		var hbox = new Box(Orientation.VERTICAL, SPACING);
-		hbox_list.add (hbox);
+		hbox_list.append(hbox);
 
-		// install
-		btn_install = new Button.with_label (_("Install"));
-		hbox.pack_start (btn_install, true, true, 0);
+		btn_install = new Button.with_label(_("Install"));
+		hbox.append(btn_install);
 		btn_install.clicked.connect(() => { do_install(selected_kernels); });
-
-		// uninstall
-		btn_uninstall = new Button.with_label (_("Uninstall"));
-		hbox.pack_start (btn_uninstall, true, true, 0);
+		btn_uninstall = new Button.with_label(_("Uninstall"));
+		hbox.append(btn_uninstall);
 		btn_uninstall.clicked.connect(() => { do_uninstall(selected_kernels); });
 
-		// ppa
-		button = new Button.with_label ("PPA");
+		button = new Button.with_label("PPA");
 		button.set_tooltip_text(_("Changelog, build status, etc"));
-		hbox.pack_start (button, true, true, 0);
+		hbox.append(button);
 		button.clicked.connect(() => {
 			string uri = App.ppa_uri;
-			if (selected_kernels.size==1 && selected_kernels[0].is_mainline) uri=selected_kernels[0].page_uri;
-			if (!uri_open(uri)) AppGtk.alert(this,_("Unable to launch")+" "+uri,Gtk.MessageType.ERROR);
+			if (selected_kernels.size == 1 && selected_kernels[0].is_mainline) uri = selected_kernels[0].page_uri;
+			if (!uri_open(uri)) AppGtk.alert(this, _("Unable to launch") + " " + uri);
 		});
 
-		// uninstall-old
-		btn_uninstall_old = new Button.with_label (_("Uninstall Old"));
+		btn_uninstall_old = new Button.with_label(_("Uninstall Old"));
 		btn_uninstall_old.set_tooltip_text(_("Uninstall everything except:\n* the highest installed version\n* the currently running kernel\n* any kernels that are locked"));
-		hbox.pack_start (btn_uninstall_old, true, true, 0);
+		hbox.append(btn_uninstall_old);
 		btn_uninstall_old.clicked.connect(uninstall_old);
 
-		// reload
-		btn_reload = new Button.with_label (_("Reload"));
+		btn_reload = new Button.with_label(_("Reload"));
 		btn_reload.set_tooltip_text(_("Delete and reload all cached kernel info\n(the same as \"mainline --delete-cache\")"));
-		hbox.pack_start (btn_reload, true, true, 0);
+		hbox.append(btn_reload);
 		btn_reload.clicked.connect(() => { update_cache(true); });
 
-		// settings
-		button = new Button.with_label (_("Settings"));
-		hbox.pack_start (button, true, true, 0);
+		button = new Button.with_label(_("Settings"));
+		hbox.append(button);
 		button.clicked.connect(do_settings);
 
-		// about
-		button = new Button.with_label (_("About"));
-		hbox.pack_start (button, true, true, 0);
+		button = new Button.with_label(_("About"));
+		hbox.append(button);
 		button.clicked.connect(do_about);
 
-		// exit
-		button = new Button.with_label (_("Exit"));
-		hbox.pack_start (button, true, true, 0);
-		button.clicked.connect(Gtk.main_quit);
-
+		button = new Button.with_label(_("Exit"));
+		hbox.append(button);
+		button.clicked.connect(() => { application.quit(); });
 	}
 
-	void do_settings () {
-		// capture some settings before to detect if they change
-
-		// settings that change the selection set -> trigger cache update
-		var old_hide_invalid = App.hide_invalid;
-		var old_hide_unstable = App.hide_unstable;
-		var old_hide_flavors = App.hide_flavors;
-		var old_previous_majors = App.previous_majors;
-
-		// settings that change the notification behavior -> trigger notify script update
-		var old_notify_interval_unit = App.notify_interval_unit;
+	void do_settings() {
+		var old_hide_invalid         = App.hide_invalid;
+		var old_hide_unstable        = App.hide_unstable;
+		var old_hide_flavors         = App.hide_flavors;
+		var old_previous_majors      = App.previous_majors;
+		var old_notify_interval_unit  = App.notify_interval_unit;
 		var old_notify_interval_value = App.notify_interval_value;
-		var old_notify_major = App.notify_major;
-		var old_notify_minor = App.notify_minor;
+		var old_notify_major         = App.notify_major;
+		var old_notify_minor         = App.notify_minor;
 
-		var swin = new SettingsWindow(this);
+		var swin = new SettingsWindow();
 
-		swin.destroy.connect(() => {
+		swin.closed.connect(() => {
+			App.save_app_config();
 
-			App.save_app_config(); // blindly sets RUN_NOTIFY_SCRIPT = true;
-
-			// if notify settings did not change, then un-flag notify script update
 			if (App.notify_interval_value == old_notify_interval_value &&
-				App.notify_interval_unit == old_notify_interval_unit &&
-				App.notify_major == old_notify_major &&
-				App.notify_minor == old_notify_minor) App.RUN_NOTIFY_SCRIPT = false;
+				App.notify_interval_unit  == old_notify_interval_unit  &&
+				App.notify_major          == old_notify_major          &&
+				App.notify_minor          == old_notify_minor) App.RUN_NOTIFY_SCRIPT = false;
 
-			// if the selection set changed, then update cache
-			if (App.hide_invalid != old_hide_invalid ||
-				App.hide_unstable != old_hide_unstable ||
-				App.hide_flavors != old_hide_flavors ||
+			if (App.hide_invalid    != old_hide_invalid    ||
+				App.hide_unstable   != old_hide_unstable   ||
+				App.hide_flavors    != old_hide_flavors    ||
 				App.previous_majors != old_previous_majors) update_cache();
 
-			// in case we didn't run update_cache()
 			App.run_notify_script_if_due();
-
 		});
 
-		swin.show_all();
-
+		swin.present(this);
 	}
 
 	void do_about() {
-
-		string[] authors = {
+		string[] developers = {
+			BRANDING_AUTHORNAME + " <" + BRANDING_AUTHOREMAIL + ">",
 			"Tony George <teejeetech@gmail.com>",
-			BRANDING_AUTHORNAME+" <"+BRANDING_AUTHOREMAIL+">"
+			"shg8@github",
+			"cloyce@github",
+			"LucasChollet@github"
 		};
 
-		show_about_dialog(this,
-			program_name:BRANDING_LONGNAME,
-			logo_icon_name:BRANDING_SHORTNAME,
-			version:BRANDING_VERSION,
-			website:BRANDING_WEBSITE,
-			website_label:BRANDING_WEBSITE,
-			comments:_("A tool for installing kernel packages\nfrom the Ubuntu Mainline Kernels PPA"),
-			copyright:
-				"\"ukuu\" 2015 Tony George\n" +
-				"\""+BRANDING_SHORTNAME+"\" "+BRANDING_COPYRIGHT+" "+BRANDING_AUTHORNAME,
-			authors:authors,
-			translator_credits:TRANSLATORS,
-			license_type:License.GPL_3_0
-		);
+		string[] notice_sh = { "Brian K. White (https://github.com/bkw777/notice.sh)" };
+
+		var dialog = new Adw.AboutDialog();
+		dialog.application_name = BRANDING_LONGNAME;
+		dialog.version = BRANDING_VERSION;
+		dialog.developer_name = BRANDING_AUTHORNAME;
+		dialog.website = BRANDING_WEBSITE;
+		dialog.issue_url = BRANDING_WEBSITE + "/issues";
+		dialog.comments = _("A tool for installing kernel packages\nfrom the Ubuntu Mainline Kernels PPA");
+		dialog.copyright = "\"ukuu\" 2015 Tony George\n\"" + BRANDING_SHORTNAME + "\" " + BRANDING_COPYRIGHT + " " + BRANDING_AUTHORNAME;
+		dialog.license_type = Gtk.License.GPL_3_0;
+		dialog.developers = developers;
+		
+		// Improve translator formatting: replace the spaces between entries with newlines
+		if (TRANSLATORS != null) {
+			dialog.translator_credits = TRANSLATORS.replace("> ", ">\n");
+		}
+
+		dialog.add_acknowledgement_section(_("Inclusions"), notice_sh);
+
+		// Try to load icon from the absolute path if it's not in the theme
+		string icon_path = INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux.png";
+		if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
+			dialog.application_icon = icon_path;
+		} else {
+			dialog.application_icon = BRANDING_SHORTNAME;
+		}
+
+		dialog.present(this);
 	}
 
-	// Update the cache as optimally as possible.
-	void update_cache(bool reload=false) {
-		vprint("update_cache(reload="+reload.to_string()+")",3);
+	void update_cache(bool reload = false) {
+		vprint("update_cache(reload=" + reload.to_string() + ")", 3);
 		string msg = _("Updating Kernels...");
-		win.set_cursor(cursor_busy);
+		set_cursor(cursor_busy);
 		updating = true;
 		set_button_state();
-		set_infobar(msg,updating);
-		//tm.clear(); // blank the list while updating
-		if (reload) { tm.clear(); LinuxKernel.delete_cache(); }
+		set_infobar(msg, updating);
+		if (reload) { tm.remove_all(); LinuxKernel.delete_cache(); }
 		LinuxKernel.mk_kernel_list(false, (last) => { update_status_line(msg, last); });
 	}
 
-	// I really don't like this 'last' hack to detect end of job
 	void update_status_line(string message, bool last = false) {
 		if (last) {
-			Gdk.threads_add_idle_full(Priority.DEFAULT_IDLE, () => {
+			GLib.Idle.add(() => {
 				tv_refresh();
-				win.set_cursor(null);
-				// I hate that this is here, there must be a better way
-				// it's here because it requires mk_kernel_list finished
+				set_cursor(null);
 				if (App.command == "install") {
 					App.command = "";
 					do_install(LinuxKernel.vlist_to_klist(App.requested_versions));
@@ -467,101 +452,94 @@ public class MainWindow : Window {
 			});
 		}
 
-		Gdk.threads_add_idle_full(Priority.DEFAULT_IDLE, () => {
-			if (updating) set_infobar("%s: %s %d/%d".printf(message, App.status_line, App.progress_count, App.progress_total),updating);
+		GLib.Idle.add(() => {
+			if (updating) set_infobar("%s: %s %d/%d".printf(message, App.status_line, App.progress_count, App.progress_total), updating);
 			return false;
 		});
 	}
 
 	void init_infobar() {
-		//vprint("init_infobar()");
-		var hbox = new Box(Orientation.HORIZONTAL,SPACING);
-		vbox_main.add(hbox);
+		var hbox = new Box(Orientation.HORIZONTAL, SPACING);
+		vbox_main.append(hbox);
 		lbl_info = new Label("");
-		spn_info = new Spinner();
-		hbox.set_homogeneous(false);
-		hbox.pack_start(lbl_info);
-		hbox.pack_end(spn_info);
-		lbl_info.set_use_markup(true);
-		lbl_info.selectable = false;
-		lbl_info.hexpand = true;
-		lbl_info.halign = Align.START;
-		spn_info.active = false;
-		spn_info.hexpand = false;
-		spn_info.halign = Align.END;
+		spn_info = new Gtk.Spinner();
+		hbox.homogeneous = false;
+		hbox.append(lbl_info);
+		hbox.append(spn_info);
+		lbl_info.use_markup  = true;
+		lbl_info.selectable  = false;
+		lbl_info.hexpand     = true;
+		lbl_info.halign      = Align.START;
+		spn_info.spinning    = false;
+		spn_info.hexpand     = false;
+		spn_info.halign      = Align.END;
 	}
 
-	void set_infobar(string? text=null, bool busy=false) {
+	void set_infobar(string? text = null, bool busy = false) {
 		string s;
-
-		if (text!=null) s = text;
+		if (text != null) s = text;
 		else {
-			s = _("Running")+" <b>%s</b>".printf(LinuxKernel.kernel_active.version_main);
+			s = _("Running") + " <b>%s</b>".printf(LinuxKernel.kernel_active.version_main);
 			if (LinuxKernel.kernel_active.is_mainline) s += " (mainline)"; else s += " (ubuntu)";
 			if (LinuxKernel.kernel_latest_available.compare_to(LinuxKernel.kernel_latest_installed) > 0)
-				s += " ~ <b>%s</b> ".printf(LinuxKernel.kernel_latest_available.version_main)+_("available");
+				s += " ~ <b>%s</b> ".printf(LinuxKernel.kernel_latest_available.version_main) + _("available");
 		}
-
 		lbl_info.set_label(s);
-		spn_info.active = busy;
+		spn_info.spinning = busy;
 	}
 
 	public void do_install(Gee.ArrayList<LinuxKernel> klist) {
 		string[] vlist = {};
-		if (Main.VERBOSE>2) {
+		if (Main.VERBOSE > 2) {
 			foreach (var k in klist) vlist += k.version_main;
-			vprint("do_install("+string.joinv(" ",vlist)+")");
+			vprint("do_install(" + string.joinv(" ", vlist) + ")");
 		}
-		if (klist==null || klist.size<1) return;
+		if (klist == null || klist.size < 1) return;
 		vlist = {};
 		foreach (var k in klist) vlist += k.version_main;
 
 		string[] cmd = { BRANDING_SHORTNAME, "--from-gui" };
-		if (App.term_cmd!=DEFAULT_TERM_CMDS[0]) cmd += "--pause";
+		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "install";
-		cmd += string.joinv(",",vlist);
+		cmd += string.joinv(",", vlist);
 		exec_in_term(cmd);
 	}
 
 	public void do_uninstall(Gee.ArrayList<LinuxKernel> klist) {
 		string[] vlist = {};
-		if (Main.VERBOSE>2) {
+		if (Main.VERBOSE > 2) {
 			foreach (var k in klist) vlist += k.version_main;
-			vprint("do_uninstall("+string.joinv(" ",vlist)+")");
+			vprint("do_uninstall(" + string.joinv(" ", vlist) + ")");
 		}
-		if (klist==null || klist.size<1) return;
+		if (klist == null || klist.size < 1) return;
 		vlist = {};
-		foreach(var k in klist) vlist += k.version_main;
+		foreach (var k in klist) vlist += k.version_main;
 
 		string[] cmd = { BRANDING_SHORTNAME, "--from-gui" };
-		if (App.term_cmd!=DEFAULT_TERM_CMDS[0]) cmd += "--pause";
+		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "uninstall";
-		cmd += string.joinv(",",vlist);
+		cmd += string.joinv(",", vlist);
 		exec_in_term(cmd);
 	}
 
 	public void uninstall_old() {
 		string[] cmd = { BRANDING_SHORTNAME, "--from-gui" };
-		if (App.term_cmd!=DEFAULT_TERM_CMDS[0]) cmd += "--pause";
+		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "uninstall-old";
 		exec_in_term(cmd);
 	}
 
 	public void exec_in_term(string[] argv) {
-
-		if (App.term_cmd==DEFAULT_TERM_CMDS[0]) {
-			// internal vte terminal
+		if (App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) {
 			var term = new TerminalWindow.with_parent(this);
 			term.cmd_complete.connect(() => { update_cache(); });
 			term.execute_cmd(argv);
 		} else {
-			// external terminal app
-			var cmd = sanitize_cmd(App.term_cmd).printf(string.joinv(" ",argv));
-			vprint(cmd,3);
-			Posix.system(cmd); // cmd must block!
+			var cmd = sanitize_cmd(App.term_cmd).printf(string.joinv(" ", argv));
+			vprint(cmd, 3);
+			Posix.system(cmd);
 			update_cache();
 		}
-
 	}
 
 }
