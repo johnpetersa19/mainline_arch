@@ -27,7 +27,7 @@ public Main App;
 public class AppGtk : Adw.Application {
 
 	public AppGtk() {
-		Object(application_id: "org.bkw777.mainline", flags: ApplicationFlags.DEFAULT_FLAGS);
+		Object(application_id: null, flags: ApplicationFlags.DEFAULT_FLAGS);
 	}
 
 	protected override void startup() {

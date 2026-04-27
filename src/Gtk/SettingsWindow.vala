@@ -60,17 +60,8 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		group_notify.title = _("Notification Settings");
 		page_notifications.add(group_notify);
 
-		var row_notify_major = new Adw.SwitchRow();
-		row_notify_major.title = _("Notify if a major release is available");
-		row_notify_major.active = App.notify_major;
-		row_notify_major.notify["active"].connect(() => { App.notify_major = row_notify_major.active; });
-		group_notify.add(row_notify_major);
-
-		var row_notify_minor = new Adw.SwitchRow();
-		row_notify_minor.title = _("Notify if a minor release is available");
-		row_notify_minor.active = App.notify_minor;
-		row_notify_minor.notify["active"].connect(() => { App.notify_minor = row_notify_minor.active; });
-		group_notify.add(row_notify_minor);
+		group_notify.add(create_switch_row(_("Notify for major releases (e.g. 6.0, 7.0)"), App.notify_major, (b) => { App.notify_major = b; }));
+		group_notify.add(create_switch_row(_("Notify for minor updates (e.g. 6.1.x, 6.2.x)"), App.notify_minor, (b) => { App.notify_minor = b; }));
 
 		// Check interval
 		var row_interval = new Adw.ActionRow();
@@ -181,5 +172,15 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		}
 		row_term.notify["selected"].connect(() => { App.term_cmd = term_list.get_string(row_term.selected); });
 		group_commands.add(row_term);
+	}
+
+	private delegate void OnToggled(bool active);
+
+	private Adw.SwitchRow create_switch_row(string title, bool active, OnToggled on_toggled) {
+		var row = new Adw.SwitchRow();
+		row.title = title;
+		row.active = active;
+		row.notify["active"].connect(() => { on_toggled(row.active); });
+		return row;
 	}
 }

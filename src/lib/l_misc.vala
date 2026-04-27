@@ -38,6 +38,7 @@ namespace l_misc {
 	}
 
 	public static string wrap_host_cmd(string cmd) {
+		if (cmd.has_prefix("[internal-vte]")) return cmd;
 		if (FileUtils.test("/.flatpak-info", FileTest.EXISTS)) {
 			return "flatpak-spawn --host " + cmd;
 		}
@@ -92,7 +93,13 @@ namespace l_misc {
 	public string? fread(string fname) {
 		vprint("fread("+fname+")",4);
 		string fdata = "";
-		try { FileUtils.get_contents(fname, out fdata); }
+		try { 
+			FileUtils.get_contents(fname, out fdata); 
+			if (!fdata.validate()) {
+				vprint("fread("+fname+"): Invalid UTF-8",1,stderr);
+				return "";
+			}
+		}
 		catch (Error e) { vprint(e.message,1,stderr); }
 		return fdata;
 	}

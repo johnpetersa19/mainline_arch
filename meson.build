@@ -4,6 +4,9 @@ project('mainline', ['vala', 'c'],
 )
 
 prefix = get_option('prefix')
+if prefix == '/usr/local'
+  prefix = '/usr'
+endif
 c_args = [
   # Suppress warnings from Vala-generated C code (not fixable in Vala source)
   '-Wno-unused-variable',
@@ -12,12 +15,12 @@ c_args = [
   '-Wno-deprecated-declarations',
   '-DINSTALL_PREFIX="' + prefix + '"',
   '-DBRANDING_SHORTNAME="mainline"',
-  '-DBRANDING_LONGNAME="Mainline Kernels"',
+  '-DBRANDING_LONGNAME="Mainline Kernels (Arch Linux)"',
   '-DBRANDING_VERSION="1.4.13"',
-  '-DBRANDING_COPYRIGHT="2019"',
-  '-DBRANDING_AUTHORNAME="Brian K. White"',
-  '-DBRANDING_AUTHOREMAIL="b.kenyon.w@gmail.com"',
-  '-DBRANDING_WEBSITE="https://github.com/bkw777/mainline"',
+  '-DBRANDING_COPYRIGHT="2026"',
+  '-DBRANDING_AUTHORNAME="Mainline Project Contributors"',
+  '-DBRANDING_AUTHOREMAIL="johnppetersa@gmail.com"',
+  '-DBRANDING_WEBSITE="https://github.com/johnppetersa/mainline"',
   '-DGETTEXT_PACKAGE="mainline"',
 ]
 

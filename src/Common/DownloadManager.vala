@@ -78,7 +78,7 @@ public class DownloadTask : AsyncTask {
 	}
 
 	public override void process_line(string? line) {
-		if (line==null) return;
+		if (line==null || !line.validate()) return;
 		var l = line.strip();
 		if (l.length<1) return;
 

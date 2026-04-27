@@ -1,6 +1,11 @@
-install_data('mainline.desktop.in',
-  install_dir: get_option('datadir') / 'applications',
-  rename: 'mainline.desktop'
+configure_file(
+  input: 'mainline.desktop.in',
+  output: 'mainline.desktop',
+  configuration: {
+    'BRANDING_LONGNAME': 'Mainline Kernels (Arch Linux)',
+    'BRANDING_SHORTNAME': 'mainline',
+  },
+  install_dir: get_option('datadir') / 'applications'
 )
 
 # Install icons

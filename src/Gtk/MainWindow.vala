@@ -31,6 +31,8 @@ public class MainWindow : Adw.ApplicationWindow {
 
 	const int SPACING = 6;
 
+	Adw.ToolbarView toolbar_view;
+	Adw.ToastOverlay toast_overlay;
 	Box vbox_main;
 	Box hbox_list;
 
@@ -40,6 +42,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	Button btn_reload;
 	Label lbl_info;
 	Gtk.Spinner spn_info;
+	Adw.HeaderBar header_bar;
 	Gdk.Texture? pix_arch;
 	Gdk.Texture? pix_mainline;
 	Gdk.Texture? pix_mainline_rc;
@@ -73,13 +76,18 @@ public class MainWindow : Adw.ApplicationWindow {
 		pix_mainline    = load_texture("tux.png");
 		pix_mainline_rc = load_texture("tux-red.png");
 
-		vbox_main = new Box(Orientation.VERTICAL, SPACING);
-		vbox_main.set_margin_start(SPACING);
-		vbox_main.set_margin_end(SPACING);
-		vbox_main.set_margin_top(SPACING);
-		vbox_main.set_margin_bottom(SPACING);
+		toolbar_view = new Adw.ToolbarView();
+		set_content(toolbar_view);
 
-		set_content(vbox_main);
+		header_bar = new Adw.HeaderBar();
+		toolbar_view.add_top_bar(header_bar);
+
+		toast_overlay = new Adw.ToastOverlay();
+		toolbar_view.set_content(toast_overlay);
+
+		vbox_main = new Box(Orientation.VERTICAL, 0);
+		vbox_main.margin_top = vbox_main.margin_bottom = vbox_main.margin_start = vbox_main.margin_end = SPACING;
+		toast_overlay.set_child(vbox_main);
 
 		init_ui();
 		update_cache();
@@ -162,6 +170,28 @@ public class MainWindow : Adw.ApplicationWindow {
 		});
 		tv.append_column(col_kernel);
 
+		// ── Date column ──────────────────────────────────────────────────
+		var factory_date = new Gtk.SignalListItemFactory();
+		factory_date.setup.connect((obj) => {
+			var li  = (Gtk.ListItem) obj;
+			var lbl = new Gtk.Label("");
+			lbl.xalign    = 0;
+			lbl.ellipsize = Pango.EllipsizeMode.END;
+			lbl.margin_start = SPACING;
+			lbl.margin_end   = SPACING;
+			li.set_child(lbl);
+		});
+		factory_date.bind.connect((obj) => {
+			var li  = (Gtk.ListItem) obj;
+			var k   = (LinuxKernel) li.get_item();
+			var lbl = (Gtk.Label) li.get_child();
+			lbl.set_label(k.release_date);
+		});
+
+		var col_date = new Gtk.ColumnViewColumn(_("Date"), factory_date);
+		col_date.resizable = true;
+		tv.append_column(col_date);
+
 		// ── Lock column (checkbox toggle) ────────────────────────────────
 		var factory_lock = new Gtk.SignalListItemFactory();
 		factory_lock.setup.connect((obj) => {
@@ -175,6 +205,7 @@ public class MainWindow : Adw.ApplicationWindow {
 				var k = li.get_item() as LinuxKernel;
 				if (k != null && cb.active != k.is_locked) {
 					k.set_locked(cb.active);
+					set_button_state();
 				}
 			});
 		});
@@ -340,9 +371,19 @@ public class MainWindow : Adw.ApplicationWindow {
 		btn_reload.sensitive        = true;
 
 		foreach (var k in selected_kernels) {
-			if (k.is_locked || k.is_running) continue;
-			if (k.is_installed) btn_uninstall.sensitive = true;
-			else if (!k.is_invalid) btn_install.sensitive = true;
+			if (k.is_installed) {
+				if (!k.is_locked && !k.is_running) btn_uninstall.sensitive = true;
+			} else if (!k.is_invalid) {
+				btn_install.sensitive = true;
+			}
+		}
+		
+		// If ANY selected kernel is locked or running, disable uninstall for safety
+		foreach (var k in selected_kernels) {
+			if (k.is_locked || k.is_running) {
+				btn_uninstall.sensitive = false;
+				break;
+			}
 		}
 	}
 
@@ -352,10 +393,21 @@ public class MainWindow : Adw.ApplicationWindow {
 		var hbox = new Box(Orientation.VERTICAL, SPACING);
 		hbox_list.append(hbox);
 
-		btn_install = new Button.with_label(_("Install"));
+		btn_install = new Button();
+		var bc_install = new Adw.ButtonContent();
+		bc_install.label = _("Install");
+		bc_install.icon_name = "system-software-install-symbolic";
+		btn_install.child = bc_install;
+		btn_install.add_css_class("suggested-action");
 		hbox.append(btn_install);
 		btn_install.clicked.connect(() => { do_install(selected_kernels); });
-		btn_uninstall = new Button.with_label(_("Uninstall"));
+
+		btn_uninstall = new Button();
+		var bc_uninstall = new Adw.ButtonContent();
+		bc_uninstall.label = _("Uninstall");
+		bc_uninstall.icon_name = "user-trash-symbolic";
+		btn_uninstall.child = bc_uninstall;
+		btn_uninstall.add_css_class("destructive-action");
 		hbox.append(btn_uninstall);
 		btn_uninstall.clicked.connect(() => { do_uninstall(selected_kernels); });
 
@@ -424,8 +476,9 @@ public class MainWindow : Adw.ApplicationWindow {
 
 	void do_about() {
 		string[] developers = {
-			BRANDING_AUTHORNAME + " <" + BRANDING_AUTHOREMAIL + ">",
-			"Tony George <teejeetech@gmail.com>",
+			"john peter sa <johnppetersa@gmail.com> (Arch Maintainer)",
+			"Brian K. White <b.kenyon.w@gmail.com> (Original Author)",
+			"Tony George <teejeetech@gmail.com> (Original Author)",
 			"shg8@github",
 			"cloyce@github",
 			"LucasChollet@github"
@@ -507,12 +560,24 @@ public class MainWindow : Adw.ApplicationWindow {
 
 	void set_infobar(string? text = null, bool busy = false) {
 		string s;
-		if (text != null) s = text;
+		if (text != null) {
+			s = text;
+			if (!busy) toast_overlay.add_toast(new Adw.Toast(text));
+		}
 		else {
 			s = _("Running") + " <b>%s</b>".printf(LinuxKernel.kernel_active.version_main);
 			if (LinuxKernel.kernel_active.is_mainline) s += " (mainline)"; else s += " (distro)";
-			if (LinuxKernel.kernel_latest_available.compare_to(LinuxKernel.kernel_latest_installed) > 0)
+			
+			int cmp = LinuxKernel.kernel_latest_available.compare_to(LinuxKernel.kernel_active);
+			if (cmp > 0) {
 				s += " ~ <b>%s</b> ".printf(LinuxKernel.kernel_latest_available.version_main) + _("available");
+			} else {
+				s += " - <small>" + _("Up to date") + "</small>";
+			}
+
+			if (LinuxKernel.kernel_list.size <= 1 && LinuxKernel.kall.size > 1) {
+				s += " <span color='orange' size='small'>(" + _("Other versions hidden by filters") + ")</span>";
+			}
 		}
 		lbl_info.set_label(s);
 		spn_info.spinning = busy;
@@ -532,6 +597,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "install";
 		cmd += string.joinv(",", vlist);
+		set_infobar(_("Installing Kernels..."), true);
 		exec_in_term(cmd);
 	}
 
@@ -543,12 +609,17 @@ public class MainWindow : Adw.ApplicationWindow {
 		}
 		if (klist == null || klist.size < 1) return;
 		vlist = {};
-		foreach (var k in klist) vlist += k.version_main;
+		foreach (var k in klist) {
+			if (k.is_locked || k.is_running) continue;
+			vlist += k.version_main;
+		}
+		if (vlist.length == 0) return;
 
 		string[] cmd = { get_cli_path(), "--from-gui" };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "uninstall";
 		cmd += string.joinv(",", vlist);
+		set_infobar(_("Uninstalling Kernels..."), true);
 		exec_in_term(cmd);
 	}
 
@@ -556,6 +627,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		string[] cmd = { get_cli_path(), "--from-gui" };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "uninstall-old";
+		set_infobar(_("Uninstalling old kernels..."), true);
 		exec_in_term(cmd);
 	}
 
@@ -565,8 +637,18 @@ public class MainWindow : Adw.ApplicationWindow {
 			term.cmd_complete.connect(() => { update_cache(); });
 			term.execute_cmd(argv);
 		} else {
-			var cmd = sanitize_cmd(App.term_cmd).printf(string.joinv(" ", argv));
-			vprint(cmd, 3);
+			string[] args = {};
+			if (FileUtils.test("/.flatpak-info", FileTest.EXISTS)) {
+				args += "flatpak";
+				args += "run";
+				args += "--command=" + CLI_EXE;
+				args += "org.bkw777.mainline";
+				for (int i = 1; i < argv.length; i++) args += argv[i];
+			} else {
+				args = argv;
+			}
+			var cmd = sanitize_cmd(wrap_host_cmd(App.term_cmd)).printf(string.joinv(" ", args));
+			vprint("Executing: " + cmd, 0);
 			Posix.system(cmd);
 			update_cache();
 		}

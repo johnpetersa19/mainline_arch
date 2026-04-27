@@ -18,6 +18,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public int version_rc = -1;
 	public string version_extra = "";
 	public string version_sort = "";
+	public string release_date = "";
 
 	public Gee.HashMap<string,string> pkg_url_list = new Gee.HashMap<string,string>(); // assosciated packages K=filename,V=url
 	public Gee.HashMap<string,string> pkg_checksum_list = new Gee.HashMap<string,string>(); // assosciated packages K=filename,V=checksum
@@ -118,9 +119,16 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		MAIN_INDEX_FILE = Main.CACHE_DIR+"/index.html";
 
+		vprint("LinuxKernel: check_distribution...", 3);
 		LINUX_DISTRO = check_distribution();
+		
+		vprint("LinuxKernel: check_package_architecture...", 3);
 		NATIVE_ARCH = check_package_architecture();
+		
+		vprint("LinuxKernel: check_running_kernel...", 3);
 		RUNNING_KERNEL = check_running_kernel();
+		
+		vprint("LinuxKernel: initialize_regex...", 3);
 		initialize_regex();
 
 		kernel_active = new LinuxKernel(RUNNING_KERNEL);
@@ -195,7 +203,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			rex_datetime    = new Regex(""">[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
 
 			// uri to any package file in a per-kernel page
-			rex_fileuri     = new Regex("""href="(.+\.pkg\.tar\.(?:xz|zst))"""");
+			rex_fileuri     = new Regex("href=\"(.+\\.pkg\\.tar\\.(?:xz|zst))\"");
 
 			rex_image       = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-.+-(.+)_(.+)_(?:all|""" + NATIVE_ARCH + """)\.pkg\.tar\.(?:xz|zst)""");
 			rex_image_extra = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-extra-.+-(.+)_(.+)_(?:all|""" + NATIVE_ARCH + """)\.pkg\.tar\.(?:xz|zst)""");
@@ -219,6 +227,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 	public static void delete_cache() {
 		vprint("delete_cache()",3);
+		App.index_is_fresh = false;
 		kernel_list.clear();
 		kall.clear();
 		rm(Main.CACHE_DIR);
@@ -247,7 +256,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			is_running ? _("Running") :
 			is_installed ? _("Installed") :
 			is_invalid ? _("Invalid") :
-			"";
+			_("Available");
 	}
 
 	public delegate void Notifier(bool last = false);
@@ -405,7 +414,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	// read the main index.html listing all kernels
 	static void load_main_index() {
 		vprint("load_main_index()",3);
-		if (THRESHOLD_MAJOR<0) { vprint("load_index(): MISSING THRESHOLD_MAJOR"); exit(1); }
+		if (THRESHOLD_MAJOR<0) { vprint("load_index(): MISSING THRESHOLD_MAJOR", 1, stderr); return; }
 
 		if (!exists(MAIN_INDEX_FILE)) return;
 		string txt = fread(MAIN_INDEX_FILE);
@@ -418,7 +427,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		foreach (string l in txt.split("\n")) {
 			if (!rex_pageuri.match(l, 0, out mi)) continue;
 			var u = mi.fetch(1);
+			if (u != null && !u.validate()) continue;
 			var v = mi.fetch(2);
+			if (v != null && !v.validate()) v = "";
 			var k = new LinuxKernel(v);
 			k.page_uri = App.repo_uri + u;
 			k.is_mainline = true;
@@ -427,14 +438,22 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				k.pkg_url_list[u] = k.page_uri;
 				k.name = "linux";
 				k.vers = v;
-				k.flavor = "arch";
+				k.flavor = "generic";
 			}
+			
+			var d = mi.fetch(3);
+			if (d != null && !d.validate()) d = "";
+			k.release_date = d;
 
 			if (k.version_major>=THRESHOLD_MAJOR) {
 				k.repo_datetime = 0;
 				k.kernel_list_add(); // the active list
 			}
 			kall.add(k); // a seperate list with nothing removed, used in trim_cache()
+		}
+
+		if (kall.size > 0 && kernel_list.size == 0) {
+			vprint(_("All available kernels were filtered out by 'Hide previous major versions' setting (Major version threshold: %d)").printf(THRESHOLD_MAJOR), 1, stderr);
 		}
 
 		// sort the list, highest first
@@ -454,14 +473,17 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			if (!p.name.has_prefix("linux-image-") && p.name != "linux") continue;
 			vprint("\t"+p.name,3);
 
-			// search kernel_list for matching package,
-			// fill k.pkg_list with list of associated pkgs
+			// search kernel_list for matching package and version
 			bool found_mainline = false;
 			foreach (var k in kernel_list) {
 				if (k.name != p.name) continue;
+				
+				// On Arch, package name is just 'linux', so we MUST check version too
+				if (k.name == "linux" && k.vers != p.vers) continue;
+				
 				found_mainline = true;
 				k.is_installed = true;
-				//vprint("mainline: n:"+k.name+" v:"+k.vers+" f:"+k.flavor);
+				k.set_status();
 				k.set_pkg_list();
 				break;
 			}
@@ -523,6 +545,10 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		foreach (var k in kernel_list) {
 			if (k.version.replace("-",".") == RUNNING_KERNEL.replace("-",".") || k.name.has_suffix(s)) {
 				k.is_running = true;
+				k.is_installed = true;
+				vprint("Auto-locking running kernel: " + k.version_main, 2);
+				k.set_locked(true);
+				k.set_status();
 				kernel_active = k;
 				break;
 			}
@@ -613,7 +639,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	static void find_thresholds() {
 		vprint("find_thresholds()",3);
 
-		if (Package.pacman_list.size<1) { vprint("MISSING pacman_list") ;exit(1); }
+		if (Package.pacman_list.size<1) { vprint("MISSING pacman_list", 1, stderr); return; }
 
 		if (App.previous_majors<0 || App.previous_majors>=kernel_latest_available.version_major) { THRESHOLD_MAJOR = 0; return; }
 
@@ -786,8 +812,11 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			// packages are uninstalled, so we can track builds seperately like versions,flavors,archs
 			//vprint("tv="+tv+"\tpv="+pv);
 			if (pv != tv) continue;
-			//vprint("\tp.name="+p.name+"\tp.arch="+p.arch+"\tflavor="+flavor);
-			if (!p.name.has_suffix("-"+flavor) && p.arch != "all") continue;
+			
+			// On Arch, the main package is just 'linux' (no flavor suffix)
+			bool is_arch_main = (p.name == "linux");
+			
+			if (!is_arch_main && !p.name.has_suffix("-"+flavor) && p.arch != "all") continue;
 			var l = pkg_list;
 			l += p.name;
 			pkg_list = l;
@@ -1008,16 +1037,16 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		// For arch packages: files in the Arch Linux Archive are immutable, so skip if cached.
 		// For other flavors: if keep_pkgs is false, always re-download; otherwise skip if cached.
-		bool arch_flavor = (flavor == "arch");
+		bool is_arch = App.repo_uri.contains("archlinux.org");
 		foreach (var f in pkg_url_list.keys) {
 			bool cached = exists(CACHE_KDIR+"/"+f);
-			if (!cached || (!arch_flavor && !App.keep_pkgs)) flist += f;
+			if (!cached || (!is_arch && !App.keep_pkgs)) flist += f;
 		}
 
 		// CHECKSUMS
 		if (flist.length>0) {
 			pkg_checksum_list.clear();
-			if (App.verify_checksums && flavor != "arch") {
+			if (App.verify_checksums && !is_arch) {
 				vprint(_("checksums enabled"),2);
 
 				// download the CHECKSUMS file
@@ -1144,8 +1173,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		string cmd = "";
 		foreach (var f in flist) { cmd += " '"+f+"'"; }
-		cmd = sanitize_cmd(App.auth_cmd).printf("pacman -U --noconfirm "+cmd);
-		vprint(cmd,2);
+		cmd = sanitize_cmd(wrap_host_cmd(App.auth_cmd)).printf("pacman -U --noconfirm "+cmd);
+		vprint("Executing: " + cmd, 0);
 		if (!ask()) return 1;
 		var r = Posix.system(cmd);
 		if (!App.keep_pkgs) foreach (var f in flist) rm(f);
@@ -1183,7 +1212,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		pnames = pnames.strip();
 		if (pnames.length<1) { vprint(_("Uninstall: no uninstallable packages found"),1,stderr); return 1; }
 
-		var cmd = sanitize_cmd(App.auth_cmd).printf("pacman -Rns --noconfirm "+pnames);
+		var cmd = sanitize_cmd(wrap_host_cmd(App.auth_cmd)).printf("pacman -R --noconfirm "+pnames);
 		vprint(cmd,2);
 		if (!ask()) return 1;
 		return Posix.system(cmd);

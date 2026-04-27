@@ -88,7 +88,13 @@ const string[] DEFAULT_AUTH_CMDS = {
 const string[] DEFAULT_TERM_CMDS = {
 	"[internal-vte]",
 	"gnome-terminal --wait --",
+	"kgx --wait -e",
+	"ptyxis --",
 	"konsole --no-fork -e",
+	"alacritty -e",
+	"kitty",
+	"foot",
+	"wezterm start --",
 	"xfce4-terminal --disable-server -e \"%s\"",
 	"lxterminal -e",
 	"Eterm -e",
@@ -97,7 +103,6 @@ const string[] DEFAULT_TERM_CMDS = {
 	"cool-retro-term -e",
 	"sakura -e",
 	"termit -e",
-	"kitty",
 	"qterminal -e",
 	"mlterm -e",
 	"pangoterm -e",
@@ -224,9 +229,6 @@ public class Main : Application {
 	}
 
 	public void init2() {
-		auth_cmd = wrap_host_cmd(auth_cmd);
-		term_cmd = wrap_host_cmd(term_cmd);
-
 		APP_CONFIG_FILE = CONFIG_DIR + "/config.json";
 		STARTUP_SCRIPT_FILE = CONFIG_DIR + "/" + BRANDING_SHORTNAME + "-notify.sh";
 		STARTUP_DESKTOP_FILE = CONFIG_DIR + "/autostart/" + BRANDING_SHORTNAME + "-notify.desktop";
@@ -236,10 +238,34 @@ public class Main : Application {
 
 		rnd = new Rand();
 
+		vprint("init2(): load_app_config...", 3);
 		load_app_config();
-
+		
+		vprint("init2(): Package.initialize...", 3);
 		Package.initialize();
+		
+		vprint("init2(): LinuxKernel.initialize...", 3);
 		LinuxKernel.initialize();
+
+		vprint("init2(): Checking index freshness...", 3);
+		if (exists(LinuxKernel.MAIN_INDEX_FILE)) {
+			var f = File.new_for_path(LinuxKernel.MAIN_INDEX_FILE);
+			try {
+				var info = f.query_info("time::modified", 0, null);
+				var mtime = info.get_modification_date_time();
+				var now = new DateTime.now_local();
+				
+				int64 interval_us = (int64)notify_interval_value * 3600000000; // Default to hours
+				if (notify_interval_unit == 1) interval_us *= 24; // Days
+				else if (notify_interval_unit == 2) interval_us *= 168; // Weeks (24 * 7)
+
+				if (now.difference(mtime) < interval_us) {
+					index_is_fresh = true;
+					vprint(_("main index is fresh") + " (%lds remaining)".printf((long)((interval_us - now.difference(mtime)) / 1000000)), 3);
+				}
+			} catch (Error e) { vprint("init2(): Error checking index: " + e.message, 3); }
+		}
+		vprint("init2(): done", 3);
 	}
 
 	public void get_env() {
@@ -412,7 +438,7 @@ public class Main : Application {
 
 		// update old or otherwise invalid config file
 		bool resave = false;
-		if ( repo_uri.length==0 || repo_uri.contains("archlinux.org") ) { repo_uri = DEFAULT_REPO_URI; resave = true; }
+		if ( repo_uri.length==0 || (repo_uri.contains("archlinux.org") && repo_uri != DEFAULT_REPO_URI) ) { repo_uri = DEFAULT_REPO_URI; resave = true; }
 		if (!repo_uri.has_suffix("/")) { repo_uri += "/"; resave = true; }
 		if (connect_timeout_seconds>600) connect_timeout_seconds = 600; // aria2c max allowed
 		if (resave) save_app_config();
