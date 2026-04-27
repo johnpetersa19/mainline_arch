@@ -19,11 +19,11 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public string version_extra = "";
 	public string version_sort = "";
 
-	public Gee.HashMap<string,string> deb_url_list = new Gee.HashMap<string,string>(); // assosciated .deb files K=filename,V=url
-	public Gee.HashMap<string,string> deb_checksum_list = new Gee.HashMap<string,string>(); // assosciated .deb files K=filename,V=checksum
+	public Gee.HashMap<string,string> pkg_url_list = new Gee.HashMap<string,string>(); // assosciated packages K=filename,V=url
+	public Gee.HashMap<string,string> pkg_checksum_list = new Gee.HashMap<string,string>(); // assosciated packages K=filename,V=checksum
 	public string[] pkg_list = {}; // assosciated dpkg package names
 
-	public int PPA_DIRS_VER = 0; // 0 = not set, 1 = old single dirs, 2 = new /<arch>/ subdirs
+	public int REPO_DIRS_VER = 0; // 0 = not set, 1 = old single dirs, 2 = new /<arch>/ subdirs
 	public string CACHE_KDIR;
 	public string CACHED_PAGE;
 	public string CHECKSUMS_FILE;
@@ -40,7 +40,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public bool is_running = false;
 	public bool is_mainline = true;
 	public bool is_unstable = false;
-	public int64 ppa_datetime = -1; // timestamp from the main index
+	public int64 repo_datetime = -1; // timestamp from the main index
 	public string status = ""; // Running, Installed, Invalid, for display only
 
 	// static
@@ -57,10 +57,10 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public static LinuxKernel kernel_latest_available;
 	public static LinuxKernel kernel_latest_installed;
 	public static LinuxKernel kernel_oldest_installed;
-	public static LinuxKernel kernel_last_stable_ppa_dirs_v1;
-	public static LinuxKernel kernel_last_unstable_ppa_dirs_v1;
-	//public static LinuxKernel kernel_last_stable_ppa_dirs_v2; // add more if the site changes again
-	//public static LinuxKernel kernel_last_unstable_ppa_dirs_v2;
+	public static LinuxKernel kernel_last_stable_repo_dirs_v1;
+	public static LinuxKernel kernel_last_unstable_repo_dirs_v1;
+	//public static LinuxKernel kernel_last_stable_repo_dirs_v2; // add more if the site changes again
+	//public static LinuxKernel kernel_last_unstable_repo_dirs_v2;
 
 	public static Gee.ArrayList<LinuxKernel> kernel_list = new Gee.ArrayList<LinuxKernel>();
 	public static Gee.ArrayList<LinuxKernel> kall = new Gee.ArrayList<LinuxKernel>();
@@ -101,7 +101,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public void kernel_list_add() {
 		vprint("kernel_list_add("+this.version_main+")",4);
 
-		PPA_DIRS_VER = ppa_dirs_ver();
+		REPO_DIRS_VER = repo_dirs_ver();
 		CHECKSUMS_URI = checksums_uri();
 		if (exists(NOTES_FILE)) notes = fread(NOTES_FILE).strip();
 		is_invalid = exists(INVALID_FILE);
@@ -130,15 +130,15 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		kernel_update_major = kernel_active;
 		kernel_update_minor = kernel_active;
 
-		// Special threshold kernel versions where the mainline-ppa site changed their directory structure.
-		// ppa_dirs_ver=1       ppa_dirs_ver=2
-		// ./foo.deb       vs   ./<arch>/foo.deb
+		// Special threshold kernel versions where the mainline-repo site changed their directory structure.
+		// repo_dirs_ver=1       repo_dirs_ver=2
+		// ./foo.pkg.tar.zst       vs   ./<arch>/foo.pkg.tar.zst
 		// ./CHECKSUMS     vs   ./<arch>/CHECKSUMS
 		// ./BUILT         vs   ./<arch>/status
-		kernel_last_stable_ppa_dirs_v1 = new LinuxKernel("5.6.17");
-		kernel_last_unstable_ppa_dirs_v1 = new LinuxKernel("5.7-rc7");
-		//kernel_last_stable_ppa_dirs_v2 = new LinuxKernel("x.y.z"); // if the site changes again
-		//kernel_last_unstable_ppa_dirs_v2 = new LinuxKernel("x.y-rcZ");
+		kernel_last_stable_repo_dirs_v1 = new LinuxKernel("5.6.17");
+		kernel_last_unstable_repo_dirs_v1 = new LinuxKernel("5.7-rc7");
+		//kernel_last_stable_repo_dirs_v2 = new LinuxKernel("x.y.z"); // if the site changes again
+		//kernel_last_unstable_repo_dirs_v2 = new LinuxKernel("x.y-rcZ");
 	}
 
 	// dep: lsb_release
@@ -188,36 +188,20 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		try {
 
 			// uri to a kernel page and it's datetime, in the main index.html
-			// Ubuntu: <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="v2.6.27.61/">v2.6.27.61/</a></td><td align="right">2018-05-13 20:40  </td><td align="right">  - </td><td>&nbsp;</td></tr>
 			// Arch:   <a href="linux-4.20.10.arch1-1-x86_64.pkg.tar.xz">linux-4.20.10.arch1-1-x86_64.pkg.tar.xz</a> 15-Feb-2019 19:17 70M
 			rex_pageuri     = new Regex("""href="((?:v|linux-)(.+)(?:/|-x86_64\.pkg\.tar\.(?:xz|zst)))".+[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
 
 			// date & time for any uri in a per-kernel page
 			rex_datetime    = new Regex(""">[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
 
-			// uri to any .deb file in a per-kernel page
-			// <a href="linux-headers-4.6.0-040600rc1-generic_4.6.0-040600rc1.201603261930_amd64.deb">//same deb name//</a>
-			//          ############################################################################
-			rex_fileuri     = new Regex("""href="(.+\.deb)"""");
+			// uri to any package file in a per-kernel page
+			rex_fileuri     = new Regex("""href="(.+\.pkg\.tar\.(?:xz|zst))"""");
 
-			// linux-image-3.4.75-030475-generic_3.4.75-030475.201312201255_amd64.deb
-			//                           ###1###
-			rex_image       = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-image-.+-(.+)_.+_"""       + NATIVE_ARCH + ".deb");
-
-			// linux-image-extra-3.4.75-030475-generic_3.4.75-030475.201312201255_amd64.deb
-			//                                 ###1###
-			rex_image_extra = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-image-extra-.+-(.+)_.+_""" + NATIVE_ARCH + ".deb");
-
-			// linux-image-extra-3.4.75-030475-generic_3.4.75-030475.201312201255_amd64.deb
-			//                                 ###1###
-			rex_modules     = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-modules-.+-(.+)_.+_"""     + NATIVE_ARCH + ".deb");
-
-			// linux-headers-3.4.75-030475-generic_3.4.75-030475.201312201255_amd64.deb
-			//                             ###1###
-			rex_header      = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-headers-.+-(.+)_.+_"""     + NATIVE_ARCH + ".deb");
-
-			// linux-headers-3.4.75-030475_3.4.75-030475.201312201255_all.deb
-			rex_header_all  = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-headers-.+_all.deb""");
+			rex_image       = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-.+-(.+)_(.+)_(?:all|""" + NATIVE_ARCH + """)\.pkg\.tar\.(?:xz|zst)""");
+			rex_image_extra = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-extra-.+-(.+)_(.+)_(?:all|""" + NATIVE_ARCH + """)\.pkg\.tar\.(?:xz|zst)""");
+			rex_modules     = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-modules-.+-(.+)_(.+)_(?:all|""" + NATIVE_ARCH + """)\.pkg\.tar\.(?:xz|zst)""");
+			rex_header      = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-headers-.+-(.+)_(.+)_(?:all|""" + NATIVE_ARCH + """)\.pkg\.tar\.(?:xz|zst)""");
+			rex_header_all  = new Regex("(?:" + NATIVE_ARCH + """/|>)?linux-headers-.+_all\.pkg\.tar\.(?:xz|zst)""");
 
 		} catch (Error e) {
 			vprint(e.message,1,stderr);
@@ -286,7 +270,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		App.cancelled = false;
 
 		// find the oldest major version to include
-		Package.mk_dpkg_list();
+		Package.mk_pacman_list();
 		find_thresholds();
 
 		// ===== download the main index.html listing all kernels =====
@@ -315,8 +299,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 			// now we can consider is_invalid
 			// an invalid kernel might be installed, but that would have to
-			// be a distro kernel or self-compiled, not a mainline-ppa one,
-			// so it's ok to filter out an invalid mainline-ppa one here
+			// be a distro kernel or self-compiled, not a mainline-repo one,
+			// so it's ok to filter out an invalid mainline-repo one here
 			if (k.is_invalid && App.hide_invalid) continue;
 
 			// there may be installed rc kernels even if rc are currently disabled
@@ -337,7 +321,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		}
 
 		// process the download list
-		if (downloads.size>0 && App.ppa_up) {
+		if (downloads.size>0 && App.repo_up) {
 
 			// download the indexes
 			vprint(_("downloading new pages"),3);
@@ -392,15 +376,15 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		if (!exists(MAIN_INDEX_FILE)) App.index_is_fresh=false;
 		if (App.index_is_fresh) return true;
-		if (!App.try_ppa()) return false;
+		if (!App.try_repo()) return false;
 
 		mkdir(Main.CACHE_DIR);
 
 		// preserve the old index in case the dl fails
 		string tbn = "%8.8X".printf(Main.rnd.next_int());
 		string tfn = Main.CACHE_DIR+"/"+tbn;
-		vprint("+ DownloadItem("+App.ppa_uri+","+Main.CACHE_DIR+","+tbn+")",4);
-		var item = new DownloadItem(App.ppa_uri, Main.CACHE_DIR, tbn);
+		vprint("+ DownloadItem("+App.repo_uri+","+Main.CACHE_DIR+","+tbn+")",4);
+		var item = new DownloadItem(App.repo_uri, Main.CACHE_DIR, tbn);
 		var mgr = new DownloadTask();
 		mgr.add_to_queue(item);
 
@@ -429,25 +413,25 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		kall.clear();
 
 		MatchInfo mi;
-		bool is_arch = App.ppa_uri.contains("archlinux.org");
+		bool is_arch = App.repo_uri.contains("archlinux.org");
 
 		foreach (string l in txt.split("\n")) {
 			if (!rex_pageuri.match(l, 0, out mi)) continue;
 			var u = mi.fetch(1);
 			var v = mi.fetch(2);
 			var k = new LinuxKernel(v);
-			k.page_uri = App.ppa_uri + u;
+			k.page_uri = App.repo_uri + u;
 			k.is_mainline = true;
 
 			if (is_arch) {
-				k.deb_url_list[u] = k.page_uri;
+				k.pkg_url_list[u] = k.page_uri;
 				k.name = "linux";
 				k.vers = v;
 				k.flavor = "arch";
 			}
 
 			if (k.version_major>=THRESHOLD_MAJOR) {
-				k.ppa_datetime = 0;
+				k.repo_datetime = 0;
 				k.kernel_list_add(); // the active list
 			}
 			kall.add(k); // a seperate list with nothing removed, used in trim_cache()
@@ -463,10 +447,10 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		//string msg = "";
 
-		if (Package.dpkg_list.size<1) vprint("!!! dpkg_list empty!");
+		if (Package.pacman_list.size<1) vprint("!!! pacman_list empty!");
 		if (kernel_list.size<1) vprint("!!! kernel_list empty!");
 
-		foreach (var p in Package.dpkg_list) {
+		foreach (var p in Package.pacman_list) {
 			if (!p.name.has_prefix("linux-image-") && p.name != "linux") continue;
 			vprint("\t"+p.name,3);
 
@@ -616,26 +600,26 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	// (4) But we don't have kernel_list[] yet, and we can't get it yet, because GOTO (1)
 	// 
 	// So for this early task, we rely on a weak assumption made previously in
-	// split_version_string(), when mk_dpkg_list() generates some kernel objects from
-	// the installed package info from dpkg, which is just that if the version
+	// split_version_string(), when mk_pacman_list() generates some kernel objects from
+	// the installed package info from pacman, which is just that if the version
 	// has 12 bytes after a ".", then it's an installed mainline package.
 	//
 	// TODO maybe...
-	// Get a full kernel_list from a preliminary pass with load_index() before runing mk_dpkg_list().
-	// Have mk_dpkg_list() use that to fill in a real actual is_mainline for each item in dpkg_list[].
+	// Get a full kernel_list from a preliminary pass with load_index() before runing mk_pacman_list().
+	// Have mk_pacman_list() use that to fill in a real actual is_mainline for each item in pacman_list[].
 	// Use that here, and along the way delete the unwanted items from kernel_list[].
 	// Then mk_kernel_list() can just process that kernel_list[].
 	//
 	static void find_thresholds() {
 		vprint("find_thresholds()",3);
 
-		if (Package.dpkg_list.size<1) { vprint("MISSING dpkg_list") ;exit(1); }
+		if (Package.pacman_list.size<1) { vprint("MISSING pacman_list") ;exit(1); }
 
 		if (App.previous_majors<0 || App.previous_majors>=kernel_latest_available.version_major) { THRESHOLD_MAJOR = 0; return; }
 
 		// start from the latest available and work down, ignore distro kernels
 		kernel_oldest_installed = kernel_latest_installed;
-		foreach (var p in Package.dpkg_list) {
+		foreach (var p in Package.pacman_list) {
 			if (!p.name.has_prefix("linux-image-") && p.name != "linux") continue;
 			var k = new LinuxKernel(p.vers);
 			if (k.version_major < kernel_oldest_installed.version_major && k.is_mainline) kernel_oldest_installed = k;
@@ -647,7 +631,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 	// two main forms of input string:
 	//
-	// directory name & display version from the mainline-ppa web site
+	// directory name & display version from the mainline-repo web site
 	// with or without leading "v" and/or trailing "/"
 	//    v4.4-rc2+cod1/
 	//    v4.2-rc1-unstable/
@@ -768,23 +752,23 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 	void set_pkg_list() {
 		vprint("set_pkg_list("+version_main+")",3);
-		foreach(var p in Package.dpkg_list) {
+		foreach(var p in Package.pacman_list) {
 			//vprint("vers="+vers+"\tp.vers="+p.vers,4);
 			// BLARGH!!!!
-			// The mainline-ppa site sometimes updates and replaces .deb packages after
+			// The mainline-repo site sometimes updates and replaces packages after
 			// you've installed them. The new packages have the same base name & version,
 			// just with a new later .123456789012 datestamp suffix in the vers field.
 			// This breaks us because the 'vers' we get from todays index.html
 			// no longer matches the 'p.vers' we get from the installed packages in dpkg.
 			//
-			// pkg on kernel.ubuntu.com today   installed pkg from kernel.ubuntu.com a week ago
+			// pkg on archive.archlinux.org today   installed pkg from archive.archlinux.org a week ago
 			// vers=6.4.6-060406.202308041557   p.vers=6.4.6-060406.202307241739
 			//
 			// Until I think of a better way, strip off the .datetime before compare.
 			//
 			// It's crap. Two builds with only different datetime should be
 			// installable and removable side-by-side, but we just have very little
-			// reliable way to associate dpkg info with mainline-ppa site info.
+			// reliable way to associate package info with mainline-repo site info.
 			// This code to do the crappy thing is itself also brute force crap, but working,
 			// if you can call deliberately ignoring a part of a unique key value "working".
 			var tv = vers;
@@ -811,25 +795,23 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		}
 	}
 
-	int ppa_dirs_ver() {
+	int repo_dirs_ver() {
 		int v = 1;
-		var k = kernel_last_stable_ppa_dirs_v1;                // Which threshold,
-		if (is_unstable) k = kernel_last_unstable_ppa_dirs_v1; // stable or unstable?
+		var k = kernel_last_stable_repo_dirs_v1;                // Which threshold,
+		if (is_unstable) k = kernel_last_unstable_repo_dirs_v1; // stable or unstable?
 		if (compare_to(k)>0) v = 2;                 // Do we exceed it?
-		// in the future if the ppa site changes again,
+		// in the future if the repo site changes again,
 		// add more copies of these 3 lines
-		//k = kernel_last_stable_ppa_dirs_v2;
-		//if (is_unstable) k = kernel_last_unstable_ppa_dirs_v2;
+		//if (this.compare_to(kernel_last_stable_repo_dirs_v1) < 1) return 1;
+		//if (this.compare_to(kernel_last_unstable_repo_dirs_v1) < 1) return 1;
 		//if (compare_to(k)>0) v = 3;
 		return v;
 	}
 
 	string checksums_uri() {
-		switch (PPA_DIRS_VER) {
-			case 1: return page_uri+"CHECKSUMS";
-			//case 2: return page_uri+NATIVE_ARCH+"/CHECKSUMS";
-			default: return page_uri+NATIVE_ARCH+"/CHECKSUMS";
-		}
+		if (REPO_DIRS_VER == 1) return App.repo_uri + version + "/CHECKSUMS";
+		//case 2: return page_uri+NATIVE_ARCH+"/CHECKSUMS";
+		return page_uri+NATIVE_ARCH+"/CHECKSUMS";
 	}
 
 	public string tooltip_text() {
@@ -837,7 +819,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		// available packages
 		string list = "";
-		foreach (var x in deb_url_list.keys) list += "\n"+x;
+		foreach (var x in pkg_url_list.keys) list += "\n"+x;
 		if (list.length > 0) txt += "<b>"+_("Packages Available")+"</b>"+list;
 
 		// installed packages
@@ -871,17 +853,17 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	//   whether the kernel itself is a valid build or not
 	bool load_cached_page() {
 		vprint("load_cached_page("+CACHED_PAGE+")",4);
-		if (App.ppa_uri.contains("archlinux.org")) return true; // Already populated in load_main_index
+		if (App.repo_uri.contains("archlinux.org")) return true; // Already populated in load_main_index
 		name = "";
 		vers = "";
-		deb_url_list.clear();
+		pkg_url_list.clear();
 		if (!exists(CACHED_PAGE)) { vprint(_("not found"),4); return false; }
 
 		string txt = "";
 		int64 d_this = 0;
 		int64 d_max = 0;
 		MatchInfo mi;
-		var _url_list = new Gee.HashMap<string,string>(); // local temp deb_url_list
+		var _url_list = new Gee.HashMap<string,string>(); // local temp pkg_url_list
 		var _flavors = new Gee.HashMap<string,string>(); // flavors[flavor]=name
 		string? _flavor;
 		string? _name;
@@ -901,8 +883,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		}
 		// if this kernel's timestamp from the main index is later than the latest in this
 		// kernel's cached page, then delete the cache for this kernel and return false.
-		if (ppa_datetime>d_max) {
-			vprint(version_main+": ppa:"+ppa_datetime.to_string()+" > cache:"+d_max.to_string()+" : "+_("needs update"),2);
+		if (repo_datetime>d_max) {
+			vprint(version_main+": repo:"+repo_datetime.to_string()+" > cache:"+d_max.to_string()+" : "+_("needs update"),2);
 			rm(CACHE_KDIR);
 			return false;
 		}
@@ -910,7 +892,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		// skip the rest of the work if we already know it's a failed build
 		if (is_invalid) return true;
 
-		// scan for urls to .deb files
+		// scan for urls to packages
 		foreach (string l in txt.split("\n")) {
 			if (!rex_fileuri.match(l, 0, out mi)) continue;
 			string file_uri = page_uri + mi.fetch(1);
@@ -921,20 +903,15 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			_vers = null;
 			_flavor = null;
 			if (rex_image.match(file_name, 0, out mi)) {
-				// linux-image-*.deb also defines !is_invalid and flavor
+				// linux-*.pkg.tar.zst also defines !is_invalid and flavor
 
 				// TODO FIXME
 				// some kernels have multiple builds
-				// amd64/linux-image-unsigned-5.16.0-051600-generic_5.16.0-051600.202201091830_amd64.deb
-				// amd64/linux-image-unsigned-5.16.0-051600-generic_5.16.0-051600.202201092355_amd64.deb
+				// linux-6.2.7.arch1-1-x86_64.pkg.tar.zst
 				// We are not handling that at all. We end up creating a single LinuxKernel
-				// for "5.16" with a deb_url_list that has two full sets of files
+				// for "5.16" with a pkg_url_list that has two full sets of files
 
-				//  linux-image-4.6.0-040600rc1-generic_4.6.0-040600rc1.201603261930_amd64.deb
-				// |                           |flavor-|                            |
-				// |----------------name---------------|------------vers------------|
-				//
-				//  linux-image-unsigned-6.4.3-060403-generic-64k_6.4.3-060403.202307110536_arm64.deb
+				//  linux-6.2.7.arch1-1-x86_64.pkg.tar.zst
 				// |                                 |--flavor---|                         |
 				// |---------------------name--------------------|----------vers-----------|
 				var x = file_name.split("_");
@@ -973,13 +950,13 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			} else {
 				k = this;
 			}
-			k.deb_url_list.clear();
+			k.pkg_url_list.clear();
 			foreach (var f in _url_list.keys) {
-				if (f.split("_")[0].has_suffix("-"+flv) || f.has_suffix("_all.deb")) k.deb_url_list[f] = _url_list[f];
+				if (f.split("_")[0].has_suffix("-"+flv) || f.has_suffix("_all.pkg.tar.zst")) k.pkg_url_list[f] = _url_list[f];
 			}
 			if (k != this) k.kernel_list_add();
 			//vprint(k.version_main+"\t"+k.name+"\t"+k.vers);
-			//foreach (var f in k.deb_url_list.keys) vprint("  "+f);
+			//foreach (var f in k.pkg_url_list.keys) vprint("  "+f);
 		}
 
 		return true;
@@ -1029,13 +1006,17 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		int MB = 1024 * 1024;
 		string[] flist = {};
 
-		// if keep_debs, then only download if missing
-		// if not keep_debs, then always download
-		foreach (var f in deb_url_list.keys) if (!App.keep_debs || !exists(CACHE_KDIR+"/"+f)) flist += f;
+		// For arch packages: files in the Arch Linux Archive are immutable, so skip if cached.
+		// For other flavors: if keep_pkgs is false, always re-download; otherwise skip if cached.
+		bool arch_flavor = (flavor == "arch");
+		foreach (var f in pkg_url_list.keys) {
+			bool cached = exists(CACHE_KDIR+"/"+f);
+			if (!cached || (!arch_flavor && !App.keep_pkgs)) flist += f;
+		}
 
 		// CHECKSUMS
 		if (flist.length>0) {
-			deb_checksum_list.clear();
+			pkg_checksum_list.clear();
 			if (App.verify_checksums && flavor != "arch") {
 				vprint(_("checksums enabled"),2);
 
@@ -1050,24 +1031,23 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 				// parse the CHECKSUMS file
 				// extract the sha256 hashes and save in aria2c format
-				// 52e8d02b2975920e7cc9a9d57843fcb8049addf53f1894073afce02d0e7351b2  linux-image-unsigned-6.2.9-060209-generic_6.2.9-060209.202303301133_amd64.deb
-				// deb_checksum_list[filename]="sha-256=hash"
-				// deb_checksum_list["linux-image-unsigned-6.2.9-060209-generic_6.2.9-060209.202303301133_amd64.deb"]="sha-256=52e8d02b2975920e7cc9a9d57843fcb8049addf53f1894073afce02d0e7351b2"
+				// hash  linux-6.2.7.arch1-1-x86_64.pkg.tar.zst
+				// pkg_checksum_list[filename]="sha-256=hash"
 				// aria2c -h#checksum  ;aria2c -v |grep "^Hash Algorithms:"
 				// FIXME assumption: if 1st word is 64 bytes then it is a sha256 hash
 				// FIXME assumption: there will always be exactly 2 spaces between hash & filename
 				foreach (string l in fread(CHECKSUMS_FILE).split("\n")) {
 					var w = l.split(" ");
-					if (w.length==3 && w[0].length==64) deb_checksum_list[w[2]] = "sha-256="+w[0];
+					if (w.length==3 && w[0].length==64) pkg_checksum_list[w[2]] = "sha-256="+w[0];
 				}
 			}
 
 			var dt = new DownloadTask();
-			foreach (var f in flist) dt.add_to_queue(new DownloadItem(deb_url_list[f],CACHE_KDIR,f,deb_checksum_list[f]));
+			foreach (var f in flist) dt.add_to_queue(new DownloadItem(pkg_url_list[f],CACHE_KDIR,f,pkg_checksum_list[f]));
 			vprint(_("Downloading %s").printf(version_main));
 			dt.execute();
 			string[] stat = {"","",""};
-			var t = deb_url_list.size.to_string();
+			var t = pkg_url_list.size.to_string();
 			while (dt.is_running) {
 				stat = dt.status_line.split_set(" /");
 				if (stat[1]!=null && stat[2]!=null) pbar(int64.parse(stat[1])/MB,int64.parse(stat[2])/MB,"MB - file "+(dt.prg_count+1).to_string()+"/"+t);
@@ -1076,7 +1056,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			pbar(0,0);
 		}
 
-		foreach (string f in deb_url_list.keys) if (!exists(CACHE_KDIR+"/"+f)) r = false;
+		foreach (string f in pkg_url_list.keys) if (!exists(CACHE_KDIR+"/"+f)) r = false;
 		return r;
 	}
 
@@ -1130,7 +1110,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public static int install_klist(Gee.ArrayList<LinuxKernel> klist) {
 		vprint("install_klist()",3);
 
-		if (!App.try_ppa()) return 1;
+		if (!App.try_repo()) return 1;
 
 		string[] flist = {};
 		foreach (var k in klist) {
@@ -1157,7 +1137,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			}
 
 			vprint(_("Installing %s").printf(v));
-			foreach (var f in k.deb_url_list.keys) flist += k.CACHE_KDIR+"/"+f;
+			foreach (var f in k.pkg_url_list.keys) flist += k.CACHE_KDIR+"/"+f;
 		}
 
 		if (flist.length==0) { vprint(_("Install: no installable kernels specified")); return 1; }
@@ -1168,7 +1148,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		vprint(cmd,2);
 		if (!ask()) return 1;
 		var r = Posix.system(cmd);
-		if (!App.keep_debs) foreach (var f in flist) rm(f);
+		if (!App.keep_pkgs) foreach (var f in flist) rm(f);
 		return r;
 	}
 

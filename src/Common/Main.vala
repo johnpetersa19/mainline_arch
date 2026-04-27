@@ -51,14 +51,14 @@ const string GUI_EXE = BRANDING_SHORTNAME+"-gtk";
 // .h files are a pain in the ass in vala so dump these here
 
 // network
-const string   MATCH_PPA_URI_OLD_1             = "//kernel.ubuntu.com/~kernel-ppa/mainline/"; // obsolete 20231014
-const string   DEFAULT_PPA_URI                 = "https://archive.archlinux.org/packages/l/linux/"; // Arch Linux Archive
+const string   MATCH_REPO_URI_OLD_1            = "//archive.archlinux.org/packages/l/linux/"; // obsolete 20231014
+const string   DEFAULT_REPO_URI                = "https://archive.archlinux.org/packages/l/linux/"; // Arch Linux Archive
 const string   DEFAULT_ALL_PROXY               = ""    ;
 const string   DEFAULT_USER_AGENT              = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"    ;
 const int      DEFAULT_CONNECT_TIMEOUT_SECONDS = 15    ;
 const int      DEFAULT_CONCURRENT_DOWNLOADS    = 4     ;
 const bool     DEFAULT_VERIFY_CHECKSUMS        = true  ;
-const bool     DEFAULT_KEEP_DEBS               = false ;
+const bool     DEFAULT_KEEP_PKGS               = false ;
 const bool     DEFAULT_KEEP_CACHE              = false ;
 // filters
 const bool     DEFAULT_HIDE_INVALID            = true  ;
@@ -70,10 +70,10 @@ const bool     DEFAULT_NOTIFY_MAJOR            = false ;
 const bool     DEFAULT_NOTIFY_MINOR            = false ;
 const int      DEFAULT_NOTIFY_INTERVAL_VALUE   = 4     ;
 const int      DEFAULT_NOTIFY_INTERVAL_UNIT    = 0     ;
+
 // external commands - the first in each list is the default
 const string[] DEFAULT_AUTH_CMDS = {
 	"pkexec",
-	//"pkexec env DISPLAY=${DISPLAY} XAUTHORITY=${XAUTHORITY}", // only needed for gui apps, we only run dpkg
 	"sudo",
 	"su -c \"%s\"",
 	"doas",
@@ -84,12 +84,7 @@ const string[] DEFAULT_AUTH_CMDS = {
 	"gksu --su-mode",
 	"pbrun"
 };
-// Terminal command must stay foreground and block, not fork and return immediately.
-// Most terminal apps are like like xterm and naturally block by default.
-// Some require special commandline options to make them block.
-// Don't try to include wrappers like exo-open or x-terminal-emulator
-// because the needed commandline options varies depending on the actual
-// terminal app they happen to point to at any given time.
+
 const string[] DEFAULT_TERM_CMDS = {
 	"[internal-vte]",
 	"gnome-terminal --wait --",
@@ -97,7 +92,7 @@ const string[] DEFAULT_TERM_CMDS = {
 	"xfce4-terminal --disable-server -e \"%s\"",
 	"lxterminal -e",
 	"Eterm -e",
-	"rxvt -name "+BRANDING_SHORTNAME+" -bg black -fg white -sr -e",
+	"rxvt -name " + BRANDING_SHORTNAME + " -bg black -fg white -sr -e",
 	"mate-terminal -e \"%s\"",
 	"cool-retro-term -e",
 	"sakura -e",
@@ -152,7 +147,6 @@ extern void exit(int exit_code);
 //public class Main : GLib.Object {
 public class Main : Application {
 
-	// constants ----------
 	public string CONFIG_DIR = "";
 	public static string CACHE_DIR = "";
 	public static string DATA_DIR = "";
@@ -173,8 +167,8 @@ public class Main : Application {
 	public static int VERBOSE = 1;
 	public string command = "";
 	public string requested_versions = "";
-	public bool ppa_tried = false;
-	public bool ppa_up = true;
+	public bool repo_tried = false;
+	public bool repo_up = true;
 	public bool index_is_fresh = false;
 	public bool RUN_NOTIFY_SCRIPT = false;
 	public bool yes_mode = true;
@@ -182,7 +176,7 @@ public class Main : Application {
 	public bool gui_mode = false;
 
 	// config
-	public string ppa_uri              = DEFAULT_PPA_URI;
+	public string repo_uri             = DEFAULT_REPO_URI;
 	public string all_proxy            = DEFAULT_ALL_PROXY;
 	public string user_agent           = DEFAULT_USER_AGENT;
 	public int connect_timeout_seconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
@@ -196,7 +190,7 @@ public class Main : Application {
 	public int notify_interval_unit    = DEFAULT_NOTIFY_INTERVAL_UNIT;
 	public int notify_interval_value   = DEFAULT_NOTIFY_INTERVAL_VALUE;
 	public bool verify_checksums       = DEFAULT_VERIFY_CHECKSUMS;
-	public bool keep_debs              = DEFAULT_KEEP_DEBS;
+	public bool keep_pkgs              = DEFAULT_KEEP_PKGS;
 	public bool keep_cache             = DEFAULT_KEEP_CACHE;
 	public string auth_cmd             = DEFAULT_AUTH_CMDS[0];
 	public string term_cmd             = DEFAULT_TERM_CMDS[0];
@@ -289,7 +283,7 @@ public class Main : Application {
 		vprint("save_app_config()",3);
 
 		var config = new Json.Object();
-		config.set_string_member(  "ppa_uri",                 ppa_uri                 );
+		config.set_string_member(  "repo_uri",                repo_uri                );
 		config.set_string_member(  "all_proxy",               all_proxy               );
 		config.set_string_member(  "user_agent",              user_agent              );
 		config.set_int_member(     "connect_timeout_seconds", connect_timeout_seconds );
@@ -303,7 +297,7 @@ public class Main : Application {
 		config.set_int_member(     "notify_interval_unit",    notify_interval_unit    );
 		config.set_int_member(     "notify_interval_value",   notify_interval_value   );
 		config.set_boolean_member( "verify_checksums",        verify_checksums        );
-		config.set_boolean_member( "keep_debs",               keep_debs               );
+		config.set_boolean_member( "keep_pkgs",               keep_pkgs               );
 		config.set_boolean_member( "keep_cache",              keep_cache              );
 		config.set_string_member(  "auth_cmd",                auth_cmd                );
 		config.set_string_member(  "term_cmd",                term_cmd                );
@@ -359,7 +353,7 @@ public class Main : Application {
 		var config = node.get_object();
 
 #if GLIB_JSON_1_6
-		ppa_uri                 =       config.get_string_member_with_default(  "ppa_uri",                 DEFAULT_PPA_URI                 );
+		repo_uri                =       config.get_string_member_with_default(  "repo_uri",                DEFAULT_REPO_URI                );
 		all_proxy               =       config.get_string_member_with_default(  "all_proxy",               DEFAULT_ALL_PROXY               );
 		user_agent              =       config.get_string_member_with_default(  "user_agent",              DEFAULT_USER_AGENT              );
 		connect_timeout_seconds = (int) config.get_int_member_with_default(     "connect_timeout_seconds", DEFAULT_CONNECT_TIMEOUT_SECONDS );
@@ -373,7 +367,7 @@ public class Main : Application {
 		notify_interval_unit    = (int) config.get_int_member_with_default(     "notify_interval_unit",    DEFAULT_NOTIFY_INTERVAL_UNIT    );
 		notify_interval_value   = (int) config.get_int_member_with_default(     "notify_interval_value",   DEFAULT_NOTIFY_INTERVAL_VALUE   );
 		verify_checksums        =       config.get_boolean_member_with_default( "verify_checksums",        DEFAULT_VERIFY_CHECKSUMS        );
-		keep_debs               =       config.get_boolean_member_with_default( "keep_debs",               DEFAULT_KEEP_DEBS               );
+		keep_pkgs               =       config.get_boolean_member_with_default( "keep_pkgs",               DEFAULT_KEEP_PKGS               );
 		keep_cache              =       config.get_boolean_member_with_default( "keep_cache",              DEFAULT_KEEP_CACHE              );
 		auth_cmd                =       config.get_string_member_with_default(  "auth_cmd",                DEFAULT_AUTH_CMDS[0]            );
 		term_cmd                =       config.get_string_member_with_default(  "term_cmd",                DEFAULT_TERM_CMDS[0]            );
@@ -387,7 +381,7 @@ public class Main : Application {
 		term_y                  = (int) config.get_int_member_with_default(     "term_y",                  DEFAULT_TERM_Y                  );
 		term_font_scale         =       config.get_double_member_with_default(  "term_font_scale",         DEFAULT_TERM_FONT_SCALE         );
 #else
-		ppa_uri                 = json_get_string( config, "ppa_uri",                 DEFAULT_PPA_URI                 );
+		repo_uri                = json_get_string( config, "repo_uri",                DEFAULT_REPO_URI                );
 		all_proxy               = json_get_string( config, "all_proxy",               DEFAULT_ALL_PROXY               );
 		user_agent              = json_get_string( config, "user_agent",              DEFAULT_USER_AGENT              );
 		connect_timeout_seconds = json_get_int(    config, "connect_timeout_seconds", DEFAULT_CONNECT_TIMEOUT_SECONDS );
@@ -401,7 +395,7 @@ public class Main : Application {
 		notify_interval_unit    = json_get_int(    config, "notify_interval_unit",    DEFAULT_NOTIFY_INTERVAL_UNIT    );
 		notify_interval_value   = json_get_int(    config, "notify_interval_value",   DEFAULT_NOTIFY_INTERVAL_VALUE   );
 		verify_checksums        = json_get_bool(   config, "verify_checksums",        DEFAULT_VERIFY_CHECKSUMS        );
-		keep_debs               = json_get_bool(   config, "keep_debs",               DEFAULT_KEEP_DEBS               );
+		keep_pkgs               = json_get_bool(   config, "keep_pkgs",               DEFAULT_KEEP_PKGS               );
 		keep_cache              = json_get_bool(   config, "keep_cache",              DEFAULT_KEEP_CACHE              );
 		auth_cmd                = json_get_string( config, "auth_cmd",                DEFAULT_AUTH_CMDS[0]            );
 		term_cmd                = json_get_string( config, "term_cmd",                DEFAULT_TERM_CMDS[0]            );
@@ -418,8 +412,8 @@ public class Main : Application {
 
 		// update old or otherwise invalid config file
 		bool resave = false;
-		if ( ppa_uri.length==0 || ppa_uri.contains("ubuntu.com") ) { ppa_uri = DEFAULT_PPA_URI; resave = true; }
-		if (!ppa_uri.has_suffix("/")) { ppa_uri += "/"; resave = true; }
+		if ( repo_uri.length==0 || repo_uri.contains("archlinux.org") ) { repo_uri = DEFAULT_REPO_URI; resave = true; }
+		if (!repo_uri.has_suffix("/")) { repo_uri += "/"; resave = true; }
 		if (connect_timeout_seconds>600) connect_timeout_seconds = 600; // aria2c max allowed
 		if (resave) save_app_config();
 
@@ -522,9 +516,9 @@ public class Main : Application {
 		exec_async("bash "+STARTUP_SCRIPT_FILE);
 	}
 
-	public bool try_ppa() {
-		vprint("try_ppa()",4);
-		if (ppa_tried) return ppa_up;
+	public bool try_repo() {
+		vprint("try_repo()",4);
+		if (repo_tried) return repo_up;
 
 		string std_err, std_out;
 
@@ -539,20 +533,20 @@ public class Main : Application {
 		if (connect_timeout_seconds>0) cmd += " --connect-timeout="+connect_timeout_seconds.to_string();
 		if (all_proxy.length>0) cmd += " --all-proxy='"+all_proxy+"'";
 		if (user_agent.length>0) cmd += " --user-agent='"+user_agent+"'";
-		cmd += " '"+ppa_uri+"'";
+		cmd += " '"+repo_uri+"'";
 
 		vprint(cmd,3);
 
 		int status = exec_sync(cmd, out std_out, out std_err);
 		if (std_err.length > 0) vprint(std_err,1,stderr);
 
-		ppa_tried = true;
-		ppa_up = false;
-		if (status == 0) ppa_up = true;
-		else vprint(_("Can not reach site")+": \""+ppa_uri+"\"",1,stderr);
+		repo_tried = true;
+		repo_up = false;
+		if (status == 0) repo_up = true;
+		else vprint(_("Can not reach site")+": \""+repo_uri+"\"",1,stderr);
 
-		ppa_up = true;
-		return ppa_up;
+		repo_up = true;
+		return repo_up;
 	}
 
 }

@@ -10,7 +10,7 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		// Page 1: Filters
 		var page_filters = new Adw.PreferencesPage();
 		page_filters.title = _("Filters");
-		page_filters.icon_name = "filter-symbolic";
+		page_filters.icon_name = "preferences-system-symbolic";
 		add(page_filters);
 
 		var group_filters = new Adw.PreferencesGroup();
@@ -130,22 +130,22 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		row_checksums.notify["active"].connect(() => { App.verify_checksums = row_checksums.active; });
 		group_network.add(row_checksums);
 
-		// Page 4: Advanced
-		var page_advanced = new Adw.PreferencesPage();
-		page_advanced.title = _("Advanced");
-		page_advanced.icon_name = "preferences-system-symbolic";
-		add(page_advanced);
+		// Page 4: External Commands
+		var page_commands = new Adw.PreferencesPage();
+		page_commands.title = _("External Commands");
+		page_commands.icon_name = "emblem-system-symbolic";
+		add(page_commands);
 
 		var group_urls = new Adw.PreferencesGroup();
 		group_urls.title = GLib.Markup.escape_text(_("URLs & User Agent"));
-		page_advanced.add(group_urls);
+		page_commands.add(group_urls);
 
-		// PPA URL
-		var row_ppa = new Adw.EntryRow();
-		row_ppa.title = _("Mainline-PPA URL");
-		row_ppa.text = App.ppa_uri;
-		row_ppa.notify["text"].connect(() => { App.ppa_uri = row_ppa.text.strip(); });
-		group_urls.add(row_ppa);
+		// Repo URL
+		var row_repo = new Adw.EntryRow();
+		row_repo.title = _("Arch Linux Archive URL");
+		row_repo.text = App.repo_uri;
+		row_repo.notify["text"].connect(() => { App.repo_uri = row_repo.text.strip(); });
+		group_urls.add(row_repo);
 
 		// User Agent
 		var row_ua = new Adw.EntryRow();
@@ -156,20 +156,30 @@ public class SettingsWindow : Adw.PreferencesDialog {
 
 		var group_commands = new Adw.PreferencesGroup();
 		group_commands.title = _("External Commands");
-		page_advanced.add(group_commands);
+		page_commands.add(group_commands);
 
 		// Auth Command
-		var row_auth = new Adw.EntryRow();
+		var auth_list = new Gtk.StringList(null);
+		foreach (string cmd in DEFAULT_AUTH_CMDS) auth_list.append(cmd);
+		var row_auth = new Adw.ComboRow();
+		row_auth.model = auth_list;
 		row_auth.title = _("Superuser Authorization");
-		row_auth.text = App.auth_cmd;
-		row_auth.notify["text"].connect(() => { App.auth_cmd = row_auth.text.strip(); });
+		for (uint i = 0; i < auth_list.get_n_items(); i++) {
+			if (auth_list.get_string(i) == App.auth_cmd) { row_auth.selected = i; break; }
+		}
+		row_auth.notify["selected"].connect(() => { App.auth_cmd = auth_list.get_string(row_auth.selected); });
 		group_commands.add(row_auth);
 
 		// Terminal Command
-		var row_term = new Adw.EntryRow();
+		var term_list = new Gtk.StringList(null);
+		foreach (string cmd in DEFAULT_TERM_CMDS) term_list.append(cmd);
+		var row_term = new Adw.ComboRow();
+		row_term.model = term_list;
 		row_term.title = _("Terminal Window");
-		row_term.text = App.term_cmd;
-		row_term.notify["text"].connect(() => { App.term_cmd = row_term.text.strip(); });
+		for (uint i = 0; i < term_list.get_n_items(); i++) {
+			if (term_list.get_string(i) == App.term_cmd) { row_term.selected = i; break; }
+		}
+		row_term.notify["selected"].connect(() => { App.term_cmd = term_list.get_string(row_term.selected); });
 		group_commands.add(row_term);
 	}
 }

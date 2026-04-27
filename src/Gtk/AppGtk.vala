@@ -30,6 +30,15 @@ public class AppGtk : Adw.Application {
 		Object(application_id: "org.bkw777.mainline", flags: ApplicationFlags.DEFAULT_FLAGS);
 	}
 
+	protected override void startup() {
+		base.startup();
+		Gtk.Window.set_default_icon_name(BRANDING_SHORTNAME);
+
+		// Add local pixmaps to search path for development
+		var icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+		icon_theme.add_search_path("/home/john/Projects/mainline/data/pixmaps");
+	}
+
 	protected override void activate() {
 		var win = active_window ?? new MainWindow(this);
 		win.present();

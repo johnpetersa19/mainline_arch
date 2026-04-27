@@ -28,7 +28,7 @@ public AppConsole CLI;
 public class AppConsole : GLib.Object {
 
 	string help = "\n"
-		+ BRANDING_LONGNAME + " " + BRANDING_VERSION + " - " + _("install kernel packages from %s").printf(DEFAULT_PPA_URI) + "\n"
+		+ BRANDING_LONGNAME + " " + BRANDING_VERSION + " - " + _("install kernel packages from %s").printf(DEFAULT_REPO_URI) + "\n"
 		+ "\n"
 		+ _("Syntax") + ": %s <"+_("command")+"> ["+_("options")+"]\n"
 		+ "\n"
@@ -290,9 +290,9 @@ public class AppConsole : GLib.Object {
 			return 0;
 		}
 		if (cmd=="list-installed") {
-			Package.mk_dpkg_list();
+			Package.mk_pacman_list();
 			vprint(_("Installed Kernels")+":");
-			foreach (var p in Package.dpkg_list) if (p.name.has_prefix("linux-image-") || p.name == "linux") vprint(p.name + " " + p.vers);
+			foreach (var p in Package.pacman_list) if (p.name.has_prefix("linux-image-") || p.name == "linux") vprint(p.name + " " + p.vers);
 			return 0;
 		}
 		if (cmd=="notify") {
@@ -317,7 +317,7 @@ public class AppConsole : GLib.Object {
 
 			//case "list-installed":
 				// -- output from check_installed()
-				//Package.mk_dpkg_list();
+				//Package.mk_pacman_list();
 				//LinuxKernel.check_installed(true);
 				// -- full normal print_list(), just filtered
 				//LinuxKernel.print_list(true);

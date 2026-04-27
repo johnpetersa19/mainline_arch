@@ -115,9 +115,9 @@ public class DownloadTask : AsyncTask {
 }
 
 public class DownloadItem : GLib.Object {
-	public string source_uri = "";   // "https://kernel.ubuntu.com/mainline/v6.2.7/amd64/linux-headers-6.2.7-060207-generic_6.2.7-060207.202303170542_amd64.deb"
+	public string source_uri = "";   // "https://archive.archlinux.org/packages/l/linux/linux-6.2.7.arch1-1-x86_64.pkg.tar.zst"
 	public string download_dir = ""; // "/home/bkw/.cache/mainline/6.2.7/amd64"
-	public string file_name = "";    // "linux-headers-6.2.7-060207-generic_6.2.7-060207.202303170542_amd64.deb"
+	public string file_name = "";    // "linux-6.2.7.arch1-1-x86_64.pkg.tar.zst"
 	public string checksum = "";     // "sha-256=4a90d708984d6a8fab68411710be09aa2614fe1be5b5e054a872b155d15faab6"
 
 	public string gid = "";          // first 6 bytes of gid

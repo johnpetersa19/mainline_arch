@@ -40,7 +40,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	Button btn_reload;
 	Label lbl_info;
 	Gtk.Spinner spn_info;
-	Gdk.Texture? pix_ubuntu;
+	Gdk.Texture? pix_arch;
 	Gdk.Texture? pix_mainline;
 	Gdk.Texture? pix_mainline_rc;
 	Gdk.Cursor cursor_busy;
@@ -69,7 +69,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		sel_model = new Gtk.MultiSelection(sort_model);
 		tv = new Gtk.ColumnView(sel_model);
 
-		pix_ubuntu      = load_texture("ubuntu-logo.png");
+		pix_arch        = load_texture("arch-logo.png");
 		pix_mainline    = load_texture("tux.png");
 		pix_mainline_rc = load_texture("tux-red.png");
 
@@ -117,16 +117,13 @@ public class MainWindow : Adw.ApplicationWindow {
 			var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
 			box.margin_start = SPACING;
 			box.margin_end   = SPACING;
-			var pic = new Gtk.Picture();
-			pic.can_shrink    = true;
-			pic.content_fit   = Gtk.ContentFit.CONTAIN;
-			pic.width_request  = 24;
-			pic.height_request = 24;
+			var img = new Gtk.Image();
+			img.pixel_size = 24;
 			var lbl = new Gtk.Label("");
 			lbl.ellipsize = Pango.EllipsizeMode.END;
 			lbl.xalign    = 0;
 			lbl.hexpand   = true;
-			box.append(pic);
+			box.append(img);
 			box.append(lbl);
 			li.set_child(box);
 		});
@@ -134,12 +131,20 @@ public class MainWindow : Adw.ApplicationWindow {
 			var li  = (Gtk.ListItem) obj;
 			var k   = (LinuxKernel) li.get_item();
 			var box = (Gtk.Box) li.get_child();
-			var pic = (Gtk.Picture) box.get_first_child();
-			var lbl = (Gtk.Label) pic.get_next_sibling();
+			var img = (Gtk.Image) box.get_first_child();
+			var lbl = (Gtk.Label) img.get_next_sibling();
+
 			Gdk.Texture? p = pix_mainline;
 			if (k.is_unstable) p = pix_mainline_rc;
-			if (!k.is_mainline) p = pix_ubuntu;
-			pic.set_paintable(p);
+			if (!k.is_mainline) p = pix_arch;
+
+			if (p != null) {
+				img.set_from_paintable(p);
+			} else {
+				// Fallback to system icons if custom files are missing
+				if (k.is_mainline) img.set_from_icon_name("linux-symbolic");
+				else img.set_from_icon_name("operating-system-symbolic");
+			}
 #if DISPLAY_VERSION_SORT
 			lbl.set_label(k.version_sort);
 #else
@@ -262,6 +267,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	Gdk.Texture? load_texture(string name) {
 		string[] paths = {
 			INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/" + name,
+			"/home/john/Projects/mainline/data/" + name,
 			"./data/" + name,
 			"../data/" + name,
 			"/usr/share/pixmaps/" + BRANDING_SHORTNAME + "/" + name,
@@ -276,6 +282,18 @@ public class MainWindow : Adw.ApplicationWindow {
 			}
 		}
 		return null;
+	}
+
+	string get_cli_path() {
+		try {
+			string self_path = FileUtils.read_link("/proc/self/exe");
+			string bin_dir = Path.get_dirname(self_path);
+			string local_cli = Path.build_filename(bin_dir, CLI_EXE);
+			if (FileUtils.test(local_cli, FileTest.EXISTS | FileTest.IS_EXECUTABLE)) {
+				return local_cli;
+			}
+		} catch (Error e) {}
+		return CLI_EXE;
 	}
 
 	void tv_selection_changed() {
@@ -341,11 +359,11 @@ public class MainWindow : Adw.ApplicationWindow {
 		hbox.append(btn_uninstall);
 		btn_uninstall.clicked.connect(() => { do_uninstall(selected_kernels); });
 
-		button = new Button.with_label("PPA");
+		button = new Button.with_label("Repo");
 		button.set_tooltip_text(_("Changelog, build status, etc"));
 		hbox.append(button);
 		button.clicked.connect(() => {
-			string uri = App.ppa_uri;
+			string uri = App.repo_uri;
 			if (selected_kernels.size == 1 && selected_kernels[0].is_mainline) uri = selected_kernels[0].page_uri;
 			if (!uri_open(uri)) AppGtk.alert(this, _("Unable to launch") + " " + uri);
 		});
@@ -417,11 +435,12 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		var dialog = new Adw.AboutDialog();
 		dialog.application_name = BRANDING_LONGNAME;
+		dialog.application_icon = BRANDING_SHORTNAME;
 		dialog.version = BRANDING_VERSION;
 		dialog.developer_name = BRANDING_AUTHORNAME;
 		dialog.website = BRANDING_WEBSITE;
 		dialog.issue_url = BRANDING_WEBSITE + "/issues";
-		dialog.comments = _("A tool for installing kernel packages\nfrom the Ubuntu Mainline Kernels PPA");
+		dialog.comments = _("A tool for installing kernel packages\nfrom the Arch Linux Archive");
 		dialog.copyright = "\"ukuu\" 2015 Tony George\n\"" + BRANDING_SHORTNAME + "\" " + BRANDING_COPYRIGHT + " " + BRANDING_AUTHORNAME;
 		dialog.license_type = Gtk.License.GPL_3_0;
 		dialog.set("developers", developers, null);
@@ -433,13 +452,8 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		dialog.add_acknowledgement_section(_("Inclusions"), notice_sh);
 
-		// Try to load icon from the absolute path if it's not in the theme
-		string icon_path = INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/tux.png";
-		if (GLib.FileUtils.test(icon_path, GLib.FileTest.EXISTS)) {
-			dialog.application_icon = icon_path;
-		} else {
-			dialog.application_icon = BRANDING_SHORTNAME;
-		}
+		// The icon 'mainline' is now in the search path added in AppGtk.vala
+		dialog.application_icon = BRANDING_SHORTNAME;
 
 		dialog.present(this);
 	}
@@ -496,7 +510,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		if (text != null) s = text;
 		else {
 			s = _("Running") + " <b>%s</b>".printf(LinuxKernel.kernel_active.version_main);
-			if (LinuxKernel.kernel_active.is_mainline) s += " (mainline)"; else s += " (ubuntu)";
+			if (LinuxKernel.kernel_active.is_mainline) s += " (mainline)"; else s += " (distro)";
 			if (LinuxKernel.kernel_latest_available.compare_to(LinuxKernel.kernel_latest_installed) > 0)
 				s += " ~ <b>%s</b> ".printf(LinuxKernel.kernel_latest_available.version_main) + _("available");
 		}
@@ -514,7 +528,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		vlist = {};
 		foreach (var k in klist) vlist += k.version_main;
 
-		string[] cmd = { BRANDING_SHORTNAME, "--from-gui" };
+		string[] cmd = { get_cli_path(), "--from-gui" };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "install";
 		cmd += string.joinv(",", vlist);
@@ -531,7 +545,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		vlist = {};
 		foreach (var k in klist) vlist += k.version_main;
 
-		string[] cmd = { BRANDING_SHORTNAME, "--from-gui" };
+		string[] cmd = { get_cli_path(), "--from-gui" };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "uninstall";
 		cmd += string.joinv(",", vlist);
@@ -539,7 +553,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	}
 
 	public void uninstall_old() {
-		string[] cmd = { BRANDING_SHORTNAME, "--from-gui" };
+		string[] cmd = { get_cli_path(), "--from-gui" };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
 		cmd += "uninstall-old";
 		exec_in_term(cmd);
