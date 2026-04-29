@@ -57,6 +57,17 @@ public class AppGtk : Adw.Application {
 		vprint(string.joinv(" ",argv),3);
 		App.init2();
 
+		// When running as root (via pkexec/sudo), the D-Bus session socket
+		// belongs to the original user and is not accessible to the elevated
+		// process, causing GLib to emit "Error writing credentials to socket"
+		// warnings. Unsetting DBUS_SESSION_BUS_ADDRESS prevents GLib/GIO from
+		// attempting to connect to the inaccessible socket.
+		if (Posix.getuid() == 0) {
+			GLib.Environment.unset_variable("DBUS_SESSION_BUS_ADDRESS");
+			GLib.Environment.unset_variable("DBUS_SYSTEM_BUS_ADDRESS");
+			GLib.Environment.set_variable("GSETTINGS_BACKEND", "memory", true);
+		}
+
 		return new AppGtk().run(argv);
 	}
 

@@ -8,10 +8,9 @@ namespace l_exec {
 		return r;
 	}
 
-	// blocking exec
+	// blocking exec with command line string
 	public int exec_sync(string cmd, out string? std_out = null, out string? std_err = null) {
 		vprint("exec_sync("+cmd+")",3);
-		//if (App.no_mode) return 0;
 		int r = 0;
 		string full_cmd = wrap_host_cmd(cmd);
 		try { Process.spawn_command_line_sync(full_cmd, out std_out, out std_err); }
@@ -19,12 +18,35 @@ namespace l_exec {
 		return r;
 	}
 
-	// non-blocking exec
+	// blocking exec with argument array (safer)
+	public int exec_sync_argv(string[] argv, out string? std_out = null, out string? std_err = null) {
+		vprint("exec_sync_argv("+string.joinv(" ", argv)+")",3);
+		int r = 0;
+		try {
+			Process.spawn_sync(null, argv, null, SpawnFlags.SEARCH_PATH, null, out std_out, out std_err, out r);
+		} catch (SpawnError e) {
+			r = 1;
+			vprint(e.message, 1, stderr);
+		}
+		return r;
+	}
+
+	// non-blocking exec with command line string
 	public void exec_async(string cmd) {
 		vprint("exec_async("+cmd+")",3);
-		//if (App.no_mode) return;
 		string full_cmd = wrap_host_cmd(cmd);
 		try { Process.spawn_command_line_async(full_cmd); }
 		catch (SpawnError e) { vprint(e.message,1,stderr); }
 	}
+
+	// non-blocking exec with argument array (safer)
+	public void exec_async_argv(string[] argv) {
+		vprint("exec_async_argv("+string.joinv(" ", argv)+")",3);
+		try {
+			Process.spawn_async(null, argv, null, SpawnFlags.SEARCH_PATH, null, null);
+		} catch (SpawnError e) {
+			vprint(e.message, 1, stderr);
+		}
+	}
 }
+

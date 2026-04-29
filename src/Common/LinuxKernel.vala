@@ -155,7 +155,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		string dist = "";
 
 		string std_out, std_err;
-		int e = exec_sync("lsb_release -sd", out std_out, out std_err);
+		int e = exec_sync_argv({"lsb_release", "-sd"}, out std_out, out std_err);
 		if ((e == 0) && (std_out != null)) {
 			dist = std_out.strip();
 			vprint(_("Distribution")+": "+dist,2);
@@ -170,7 +170,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		string arch = "";
 
 		string std_out, std_err;
-		int e = exec_sync("uname -m", out std_out, out std_err);
+		int e = exec_sync_argv({"uname", "-m"}, out std_out, out std_err);
 		if ((e == 0) && (std_out != null)) {
 			arch = std_out.strip();
 			vprint(_("Architecture")+": "+arch,2);
@@ -185,11 +185,12 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		string ver = "";
 
 		string std_out;
-		exec_sync("uname -r", out std_out, null);
+		exec_sync_argv({"uname", "-r"}, out std_out, null);
 		ver = std_out.strip().replace("\n","");
 
 		return ver;
 	}
+
 
 	public static void initialize_regex() {
 		vprint("initialize_regex()",3);
@@ -595,23 +596,51 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				string kversion = name.substring(8); // strip "vmlinuz-"
 				if (kversion.has_prefix("linux-")) kversion = kversion.substring(6); // strip "linux-"
 				if (kversion == "linux") continue; // handled by pacman or too generic
+
+				// Compute the base numeric version (e.g. "6.19.14" from "6.19.14.arch1-1")
+				// by walking the dot-separated parts and stopping at the first non-numeric one.
+				// Avoids Gee.ArrayList.to_array() which would generate a void** cast warning.
+				string kversion_base = kversion;
+				{
+					var parts = kversion.split(".");
+					var sb = new StringBuilder();
+					foreach (var p in parts) {
+						bool all_digits = p.length > 0;
+						for (int ci = 0; ci < p.length; ci++) {
+							if (p[ci] < '0' || p[ci] > '9') { all_digits = false; break; }
+						}
+						if (!all_digits) break;
+						if (sb.len > 0) sb.append_c('.');
+						sb.append(p);
+					}
+					if (sb.len > 0) kversion_base = sb.str;
+				}
 				
 				// check if already in list
 				bool found = false;
 				foreach (var k in kernel_list) {
-					if (k.version == kversion || k.version_main.contains(kversion) || k.vers == kversion) {
+					// Match by full version string, or by base numeric version (e.g. "6.19.14"),
+					// or by vers (the arch package version like "6.19.14.arch1-1"),
+					// or by version_main containing the kversion string.
+					if (k.vers == kversion
+						|| k.version == kversion
+						|| k.version == kversion_base
+						|| k.version_main.contains(kversion)) {
 						found = true;
 						k.is_installed = true;
 						k.set_status();
+						vprint("check_boot_directory: matched " + name + " -> " + k.version_main, 3);
 						break;
 					}
 				}
 				
 				if (!found) {
-					vprint("Found extra kernel in /boot: " + name, 3);
-					var k = new LinuxKernel(kversion, "custom");
-					k.name = name;
-					k.vers = kversion;
+					vprint("Found extra kernel in /boot: " + name + " (ver=" + kversion + " base=" + kversion_base + ")", 2);
+					// Use the base numeric version for the kernel object so version comparisons work
+					var k = new LinuxKernel(kversion_base.length > 0 ? kversion_base : kversion);
+					k.name = "linux-" + kversion; // human-readable name derived from file
+					k.vers = kversion;             // full version string (e.g. "6.19.14.arch1-1")
+					k.flavor = "distro";
 					k.is_mainline = false;
 					k.is_installed = true;
 					k.status = _("Installed (Boot)");
@@ -1180,12 +1209,26 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public static string shell_save_kernel_version(string version) {
 		string s = "";
 		s += "# --- Save versioned kernel files for %s ---\n".printf(version);
-		// Find the full kernel release name (uname -r style) from /usr/lib/modules
-		s += "KREL=$(ls /usr/lib/modules/ | grep '^%s' | head -1)\n".printf(version);
+		// BUG3 FIX: normalize version string for grep: dots after the kernel number
+		// become hyphens in the modules directory name (e.g. 7.0.2.arch1-1 → 7.0.2-arch1-1).
+		// Use fgrep (fixed-string) to avoid treating dots as regex wildcards.
+		s += "KVER_NORM=$(echo '%s' | sed 's/\\([0-9]\\)\\.\\(arch\\)/\\1-\\2/')\n".printf(version);
+		s += "KREL=$(ls /usr/lib/modules/ | grep -F \"$KVER_NORM\" | head -1)\n";
 		s += "if [ -n \"$KREL\" ]; then\n";
 		s += "  echo \"Generating versioned initramfs for $KREL...\"\n";
+		// BUG4 FIX: also generate fallback initramfs (without autodetect)
 		s += "  mkinitcpio -k \"$KREL\" -g \"/boot/initramfs-linux-%s.img\"\n".printf(version);
-		s += "  [ -f \"/boot/vmlinuz-linux\" ] && cp /boot/vmlinuz-linux \"/boot/vmlinuz-linux-%s\"\n".printf(version);
+		s += "  mkinitcpio -k \"$KREL\" -S autodetect -g \"/boot/initramfs-linux-%s-fallback.img\"\n".printf(version);
+		// BUG1 FIX: prefer the vmlinuz that the kernel's own package installed under
+		// /usr/lib/modules/$KREL/vmlinuz — this guarantees the binary matches the modules.
+		// Fall back to /boot/vmlinuz-linux only when that file is absent.
+		s += "  if [ -f \"/usr/lib/modules/$KREL/vmlinuz\" ]; then\n";
+		s += "    install -m644 \"/usr/lib/modules/$KREL/vmlinuz\" \"/boot/vmlinuz-linux-%s\"\n".printf(version);
+		s += "  elif [ -f \"/boot/vmlinuz-linux\" ]; then\n";
+		s += "    cp /boot/vmlinuz-linux \"/boot/vmlinuz-linux-%s\"\n".printf(version);
+		s += "  else\n";
+		s += "    echo \"Warning: vmlinuz for %s not found\" >&2\n".printf(version);
+		s += "  fi\n";
 		s += "  # Preserve modules directory so pacman doesn't permanently delete it on next update\n";
 		s += "  if [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
 		s += "    [ ! -d \"/usr/lib/modules/$KREL.mainline\" ] && cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\" || true\n";
@@ -1222,7 +1265,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "rm -f /boot/initramfs-linux-%s.img\n".printf(version);
 		s += "rm -f /boot/initramfs-linux-%s-fallback.img\n".printf(version);
 		// Remove both the active modules and the preserved copy
-		s += "for MDIR in $(ls /usr/lib/modules/ | grep '^%s'); do\n".printf(version);
+		// BUG3 FIX: normalize version for fgrep, same logic as shell_save_kernel_version
+		s += "KVER_NORM=$(echo '%s' | sed 's/\\([0-9]\\)\\.\\(arch\\)/\\1-\\2/')\n".printf(version);
+		s += "for MDIR in $(ls /usr/lib/modules/ | grep -F \"$KVER_NORM\"); do\n";
 		s += "  rm -rf \"/usr/lib/modules/$MDIR\" \"/usr/lib/modules/$MDIR.mainline\" || true\n";
 		s += "done\n";
 		// For systemd-boot, remove the entry file immediately since entries are per-version
@@ -1250,6 +1295,12 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "  echo 'Detected systemd-boot... updating entries'\n";
 		s += "  BOOT_DIR='/boot'\n";
 		s += "  [ -d /efi/loader/entries ] && BOOT_DIR='/efi'\n";
+		
+		// Find microcode
+		s += "  UCODE=''\n";
+		s += "  [ -f /boot/intel-ucode.img ] && UCODE='/intel-ucode.img'\n";
+		s += "  [ -f /boot/amd-ucode.img ] && UCODE='/amd-ucode.img'\n";
+
 		s += "  # Recreate entries for every versioned mainline kernel currently in /boot\n";
 		s += "  for KIMG in /boot/vmlinuz-linux-*; do\n";
 		s += "    [ -f \"$KIMG\" ] || continue\n";
@@ -1259,9 +1310,14 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "    cat > \"$ENTRY\" << SDBOOTEOF\n";
 		s += "title   Mainline Linux $KVER\n";
 		s += "linux   /vmlinuz-linux-$KVER\n";
+		s += "SDBOOTEOF\n";
+		s += "    if [ -n \"$UCODE\" ]; then\n";
+		s += "      echo \"initrd  $UCODE\" >> \"$ENTRY\"\n";
+		s += "    fi\n";
+		s += "    cat >> \"$ENTRY\" << SDBOOTEOF2\n";
 		s += "initrd  /initramfs-linux-$KVER.img\n";
 		s += "options %s\n".printf(cmdline);
-		s += "SDBOOTEOF\n";
+		s += "SDBOOTEOF2\n";
 		s += "  done\n";
 		s += "else\n";
 		s += "  echo 'Warning: unknown bootloader, skipping update' >&2\n";
@@ -1269,6 +1325,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		
 		return s;
 	}
+
+
 
 	public static int lock_vlist(bool lck,string list="") {
 		return lock_klist(lck,vlist_to_klist(list));
@@ -1332,7 +1390,10 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		// 2. Install via pacman
 		// 3. Save newly installed kernel versioned files
 		// 4. Update bootloader
-		string script = "#!/bin/bash\nset -e\n\n";
+		// BUG2 FIX: do NOT use 'set -e' globally. A mkinitcpio failure for an already-installed
+		// kernel must not abort the whole script before pacman runs. Instead, use explicit
+		// error checks on the critical pacman step only.
+		string script = "#!/bin/bash\n\n";
 
 		// Step 1: Save ALL installed kernels' boot files before they get replaced.
 		// This is critical for Arch where pacman might delete modules of other kernels.
@@ -1343,7 +1404,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				script += shell_save_kernel_version(k.version);
 				script += "else\n";
 				// Even if the boot files exist, ensure the modules are preserved in .mainline
-				script += "  KREL=$(ls /usr/lib/modules/ | grep '^%s' | head -1)\n".printf(k.version);
+				// BUG3 FIX: normalize version for fgrep in else-branch too
+				script += "  KVER_NORM=$(echo '%s' | sed 's/\\([0-9]\\)\\.\\(arch\\)/\\1-\\2/')\n".printf(k.version);
+				script += "  KREL=$(ls /usr/lib/modules/ | grep -F \"$KVER_NORM\" | head -1)\n";
 				script += "  if [ -n \"$KREL\" ] && [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
 				script += "    [ ! -d \"/usr/lib/modules/$KREL.mainline\" ] && cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\" || true\n";
 				script += "  fi\n";
@@ -1356,7 +1419,13 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			string k_pkg_args = "";
 			foreach (var f in k.pkg_url_list.keys) k_pkg_args += " '%s'".printf(k.CACHE_KDIR+"/"+f);
 			script += "# Install and version kernel %s\n".printf(k.version_main);
-			script += "pacman -U --noconfirm%s\n".printf(k_pkg_args);
+			// BUG2 FIX: explicit error check — if pacman fails, abort immediately
+			// --overwrite '/usr/lib/modules/*': our versioning script intentionally preserves module
+			// directories that belong to previously-installed kernels. When reinstalling one of those
+			// kernels pacman would otherwise abort with "file exists in filesystem" because the files
+			// are on disk but not registered in the package database. --overwrite tells pacman to just
+			// replace them, which is the correct behaviour here.
+			script += "pacman -U --noconfirm --overwrite '/usr/lib/modules/*'%s || { echo 'FATAL: pacman install failed' >&2; exit 1; }\n".printf(k_pkg_args);
 			script += shell_save_kernel_version(k.version);
 			script += "\n";
 		}
@@ -1407,7 +1476,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		pnames = pnames.strip();
 		if (to_remove.size < 1) { vprint(_("Uninstall: no kernels to remove"),1,stderr); return 1; }
 		
-		string script = "#!/bin/bash\nset -e\n\n";
+		// BUG2 FIX: do NOT use 'set -e' globally (same reason as install_klist)
+		string script = "#!/bin/bash\n\n";
 
 		// Step 1: Remove versioned boot files and conditionally uninstall via pacman
 		foreach (var k in to_remove) {
@@ -1418,7 +1488,11 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				script += "  pacman -R --noconfirm %s\n".printf(p);
 				script += "fi\n";
 			}
-			script += shell_remove_kernel_version(k.version);
+			// Use k.vers (full version string, e.g. "6.19.14.arch1-1") for boot file removal
+			// since that's what the installer uses to name files. Fall back to k.version for
+			// mainline kernels where vers may be empty or identical to version.
+			string removal_version = (k.vers.length > 0 && k.vers != k.version) ? k.vers : k.version;
+			script += shell_remove_kernel_version(removal_version);
 			script += "\n";
 		}
 
