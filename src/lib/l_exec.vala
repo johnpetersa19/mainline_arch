@@ -20,10 +20,15 @@ namespace l_exec {
 
 	// blocking exec with argument array (safer)
 	public int exec_sync_argv(string[] argv, out string? std_out = null, out string? std_err = null) {
-		vprint("exec_sync_argv("+string.joinv(" ", argv)+")",3);
+		string[] full_argv = argv;
+		if (FileUtils.test("/.flatpak-info", FileTest.EXISTS)) {
+			full_argv = { "flatpak-spawn", "--host" };
+			foreach (var arg in argv) full_argv += arg;
+		}
+		vprint("exec_sync_argv("+string.joinv(" ", full_argv)+")",3);
 		int r = 0;
 		try {
-			Process.spawn_sync(null, argv, null, SpawnFlags.SEARCH_PATH, null, out std_out, out std_err, out r);
+			Process.spawn_sync(null, full_argv, null, SpawnFlags.SEARCH_PATH, null, out std_out, out std_err, out r);
 		} catch (SpawnError e) {
 			r = 1;
 			vprint(e.message, 1, stderr);
@@ -41,12 +46,18 @@ namespace l_exec {
 
 	// non-blocking exec with argument array (safer)
 	public void exec_async_argv(string[] argv) {
-		vprint("exec_async_argv("+string.joinv(" ", argv)+")",3);
+		string[] full_argv = argv;
+		if (FileUtils.test("/.flatpak-info", FileTest.EXISTS)) {
+			full_argv = { "flatpak-spawn", "--host" };
+			foreach (var arg in argv) full_argv += arg;
+		}
+		vprint("exec_async_argv("+string.joinv(" ", full_argv)+")",3);
 		try {
-			Process.spawn_async(null, argv, null, SpawnFlags.SEARCH_PATH, null, null);
+			Process.spawn_async(null, full_argv, null, SpawnFlags.SEARCH_PATH, null, null);
 		} catch (SpawnError e) {
 			vprint(e.message, 1, stderr);
 		}
 	}
+
 }
 

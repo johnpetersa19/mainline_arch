@@ -444,33 +444,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	}
 
 	void do_settings() {
-		var old_hide_invalid         = App.hide_invalid;
-		var old_hide_unstable        = App.hide_unstable;
-		var old_hide_flavors         = App.hide_flavors;
-		var old_previous_majors      = App.previous_majors;
-		var old_notify_interval_unit  = App.notify_interval_unit;
-		var old_notify_interval_value = App.notify_interval_value;
-		var old_notify_major         = App.notify_major;
-		var old_notify_minor         = App.notify_minor;
-
 		var swin = new SettingsWindow();
-
-		swin.closed.connect(() => {
-			App.save_app_config();
-
-			if (App.notify_interval_value == old_notify_interval_value &&
-				App.notify_interval_unit  == old_notify_interval_unit  &&
-				App.notify_major          == old_notify_major          &&
-				App.notify_minor          == old_notify_minor) App.RUN_NOTIFY_SCRIPT = false;
-
-			if (App.hide_invalid    != old_hide_invalid    ||
-				App.hide_unstable   != old_hide_unstable   ||
-				App.hide_flavors    != old_hide_flavors    ||
-				App.previous_majors != old_previous_majors) update_cache();
-
-			App.run_notify_script_if_due();
-		});
-
 		swin.present(this);
 	}
 
@@ -484,32 +458,17 @@ public class MainWindow : Adw.ApplicationWindow {
 			"LucasChollet@github"
 		};
 
-		const string[] notice_sh = { "Brian K. White (https://github.com/bkw777/notice.sh)" };
-
 		var dialog = new Adw.AboutDialog() {
 			application_name = BRANDING_LONGNAME,
 			application_icon = BRANDING_SHORTNAME,
 			version = BRANDING_VERSION,
-			developer_name = BRANDING_AUTHORNAME,
-			website = BRANDING_WEBSITE,
-			issue_url = BRANDING_WEBSITE + "/issues",
 			comments = _("A tool for installing kernel packages\nfrom the Arch Linux Archive"),
-			copyright = "Copyright 2015 Tony George (ukuu)\nCopyright %s %s %s".printf(BRANDING_COPYRIGHT, BRANDING_AUTHORNAME, BRANDING_SHORTNAME),
-			license_type = Gtk.License.GPL_3_0,
-			debug_info = "Kernel: %s\nArch: %s".printf(LinuxKernel.RUNNING_KERNEL, LinuxKernel.NATIVE_ARCH)
+			website = BRANDING_WEBSITE,
+			license_type = Gtk.License.GPL_3_0
 		};
 		dialog.set_developers(developers);
-
-		
-		if (TRANSLATORS != null) {
-			dialog.translator_credits = TRANSLATORS.replace("> ", ">\n");
-		}
-
-		dialog.add_acknowledgement_section(_("Inclusions"), notice_sh);
-
 		dialog.present(this);
 	}
-
 
 	void update_cache(bool reload = false) {
 		vprint("update_cache(reload=" + reload.to_string() + ")", 3);
@@ -527,10 +486,6 @@ public class MainWindow : Adw.ApplicationWindow {
 			GLib.Idle.add(() => {
 				tv_refresh();
 				set_cursor(null);
-				if (App.command == "install") {
-					App.command = "";
-					do_install(LinuxKernel.vlist_to_klist(App.requested_versions));
-				}
 				return false;
 			});
 		}
@@ -546,87 +501,51 @@ public class MainWindow : Adw.ApplicationWindow {
 		vbox_main.append(hbox);
 		lbl_info = new Label("");
 		spn_info = new Gtk.Spinner();
-		hbox.homogeneous = false;
 		hbox.append(lbl_info);
 		hbox.append(spn_info);
-		lbl_info.use_markup  = true;
-		lbl_info.selectable  = false;
 		lbl_info.hexpand     = true;
 		lbl_info.halign      = Align.START;
 		spn_info.spinning    = false;
-		spn_info.hexpand     = false;
-		spn_info.halign      = Align.END;
 	}
 
 	void set_infobar(string? text = null, bool busy = false) {
 		string s;
-		if (text != null) {
-			s = text;
-			if (!busy) toast_overlay.add_toast(new Adw.Toast(text));
-		}
-		else {
-			s = _("Running") + " <b>%s</b>".printf(LinuxKernel.kernel_active.version_main);
-			if (LinuxKernel.kernel_active.is_mainline) s += " (mainline)"; else s += " (distro)";
-			
-			int cmp = LinuxKernel.kernel_latest_available.compare_to(LinuxKernel.kernel_active);
-			if (cmp > 0) {
-				s += " ~ <b>%s</b> ".printf(LinuxKernel.kernel_latest_available.version_main) + _("available");
-			} else {
-				s += " - <small>" + _("Up to date") + "</small>";
-			}
-
-			if (LinuxKernel.kernel_list.size <= 1 && LinuxKernel.kall.size > 1) {
-				s += " <span color='orange' size='small'>(" + _("Other versions hidden by filters") + ")</span>";
-			}
-		}
+		if (text != null) s = text;
+		else s = _("Running") + " <b>%s</b>".printf(LinuxKernel.kernel_active.version_main);
 		lbl_info.set_label(s);
+		lbl_info.use_markup = true;
 		spn_info.spinning = busy;
 	}
 
 	public void do_install(Gee.ArrayList<LinuxKernel> klist) {
-		string[] vlist = {};
-		if (Main.VERBOSE > 2) {
-			foreach (var k in klist) vlist += k.version_main;
-			vprint("do_install(" + string.joinv(" ", vlist) + ")");
-		}
 		if (klist == null || klist.size < 1) return;
-		vlist = {};
+		string[] vlist = {};
 		foreach (var k in klist) vlist += k.version_main;
 
-		string[] cmd = { get_cli_path(), "--from-gui" };
+		string[] cmd = { get_cli_path(), "--from-gui", "install", string.joinv(",", vlist) };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
-		cmd += "install";
-		cmd += string.joinv(",", vlist);
 		set_infobar(_("Installing Kernels..."), true);
 		exec_in_term(cmd);
 	}
 
 	public void do_uninstall(Gee.ArrayList<LinuxKernel> klist) {
-		string[] vlist = {};
-		if (Main.VERBOSE > 2) {
-			foreach (var k in klist) vlist += k.version_main;
-			vprint("do_uninstall(" + string.joinv(" ", vlist) + ")");
-		}
 		if (klist == null || klist.size < 1) return;
-		vlist = {};
+		string[] vlist = {};
 		foreach (var k in klist) {
 			if (k.is_locked || k.is_running) continue;
 			vlist += k.version_main;
 		}
 		if (vlist.length == 0) return;
 
-		string[] cmd = { get_cli_path(), "--from-gui" };
+		string[] cmd = { get_cli_path(), "--from-gui", "uninstall", string.joinv(",", vlist) };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
-		cmd += "uninstall";
-		cmd += string.joinv(",", vlist);
 		set_infobar(_("Uninstalling Kernels..."), true);
 		exec_in_term(cmd);
 	}
 
 	public void uninstall_old() {
-		string[] cmd = { get_cli_path(), "--from-gui" };
+		string[] cmd = { get_cli_path(), "--from-gui", "uninstall-old" };
 		if (!App.term_cmd.has_suffix(DEFAULT_TERM_CMDS[0])) cmd += "--pause";
-		cmd += "uninstall-old";
 		set_infobar(_("Uninstalling old kernels..."), true);
 		exec_in_term(cmd);
 	}

@@ -539,7 +539,7 @@ public class Main : GLib.Object {
 	public void run_notify_script_if_due() {
 		if (!RUN_NOTIFY_SCRIPT) return;
 		RUN_NOTIFY_SCRIPT = false;
-		exec_async("bash "+STARTUP_SCRIPT_FILE);
+		exec_async_argv({"bash", STARTUP_SCRIPT_FILE});
 	}
 
 	public bool try_repo() {
@@ -548,22 +548,24 @@ public class Main : GLib.Object {
 
 		string std_err, std_out;
 
-		string cmd = "aria2c"
-		+ " --no-netrc"
-		+ " --no-conf"
-		+ " --max-file-not-found=3"
-		+ " --retry-wait=2"
-		+ " --max-tries=3"
-		+ " --dry-run"
-		+ " --quiet";
-		if (connect_timeout_seconds>0) cmd += " --connect-timeout="+connect_timeout_seconds.to_string();
-		if (all_proxy.length>0) cmd += " --all-proxy='"+all_proxy+"'";
-		if (user_agent.length>0) cmd += " --user-agent='"+user_agent+"'";
-		cmd += " '"+repo_uri+"'";
+		string[] cmd = {
+			"aria2c",
+			"--no-netrc",
+			"--no-conf",
+			"--max-file-not-found=3",
+			"--retry-wait=2",
+			"--dry-run",
+			"--quiet"
+		};
+		if (connect_timeout_seconds>0) cmd += "--connect-timeout="+connect_timeout_seconds.to_string();
+		if (all_proxy.length>0) cmd += "--all-proxy="+all_proxy;
+		if (user_agent.length>0) cmd += "--user-agent="+user_agent;
+		cmd += repo_uri;
 
-		vprint(cmd,3);
+		vprint(string.joinv(" ", cmd), 3);
 
-		int status = exec_sync(cmd, out std_out, out std_err);
+		int status = exec_sync_argv(cmd, out std_out, out std_err);
+
 		if (std_err.length > 0) vprint(std_err,1,stderr);
 
 		repo_tried = true;
