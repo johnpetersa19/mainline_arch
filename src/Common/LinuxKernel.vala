@@ -470,7 +470,11 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		if (kernel_list.size<1) vprint("!!! kernel_list empty!");
 
 		foreach (var p in Package.pacman_list) {
-			if (!p.name.has_prefix("linux-image-") && p.name != "linux") continue;
+			if (!p.name.has_prefix("linux-image-") && !p.name.has_prefix("linux-") && p.name != "linux") continue;
+			
+			// Exclude common non-kernel packages
+			if (p.name.has_suffix("-headers") || p.name.contains("-firmware") || p.name.has_suffix("-api-headers") || p.name.contains("-meta") || p.name.contains("-docs")) continue;
+			
 			vprint("\t"+p.name,3);
 
 			// search kernel_list for matching package and version
@@ -479,7 +483,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				if (k.name != p.name) continue;
 				
 				// On Arch, package name is just 'linux', so we MUST check version too
-				if (k.name == "linux" && k.vers != p.vers) continue;
+				if ((k.name == "linux" || k.name.has_prefix("linux-")) && k.vers != p.vers) continue;
 				
 				found_mainline = true;
 				k.is_installed = true;
@@ -539,6 +543,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			}
 		}
 
+		// find kernels manually installed in /boot
+		check_boot_directory();
+
 		// kernel_list contains both mainline and installed distro kernels now
 		// find the running kernel
 		var s = "-"+RUNNING_KERNEL;
@@ -570,6 +577,49 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				//if (k.is_running) msg += " (" + _("running") +")";
 				//vprint(msg,2);
 			}
+		}
+	}
+
+	public static void check_boot_directory() {
+		vprint("check_boot_directory()", 3);
+		try {
+			var dir = File.new_for_path("/boot");
+			if (!dir.query_exists()) return;
+
+			var enumerator = dir.enumerate_children("standard::name", FileQueryInfoFlags.NONE);
+			FileInfo info;
+			while ((info = enumerator.next_file()) != null) {
+				string name = info.get_name();
+				if (!name.has_prefix("vmlinuz-")) continue;
+				
+				string kversion = name.substring(8); // strip "vmlinuz-"
+				if (kversion.has_prefix("linux-")) kversion = kversion.substring(6); // strip "linux-"
+				if (kversion == "linux") continue; // handled by pacman or too generic
+				
+				// check if already in list
+				bool found = false;
+				foreach (var k in kernel_list) {
+					if (k.version == kversion || k.version_main.contains(kversion) || k.vers == kversion) {
+						found = true;
+						k.is_installed = true;
+						k.set_status();
+						break;
+					}
+				}
+				
+				if (!found) {
+					vprint("Found extra kernel in /boot: " + name, 3);
+					var k = new LinuxKernel(kversion, "custom");
+					k.name = name;
+					k.vers = kversion;
+					k.is_mainline = false;
+					k.is_installed = true;
+					k.status = _("Installed (Boot)");
+					k.kernel_list_add();
+				}
+			}
+		} catch (Error e) {
+			vprint("Error scanning /boot: " + e.message, 2);
 		}
 	}
 
@@ -646,7 +696,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		// start from the latest available and work down, ignore distro kernels
 		kernel_oldest_installed = kernel_latest_installed;
 		foreach (var p in Package.pacman_list) {
-			if (!p.name.has_prefix("linux-image-") && p.name != "linux") continue;
+			if (!p.name.has_prefix("linux-image-") && !p.name.has_prefix("linux-") && p.name != "linux") continue;
+			if (p.name.has_suffix("-headers") || p.name.contains("-firmware") || p.name.contains("-meta")) continue;
+
 			var k = new LinuxKernel(p.vers);
 			if (k.version_major < kernel_oldest_installed.version_major && k.is_mainline) kernel_oldest_installed = k;
 		}
@@ -709,22 +761,27 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		var chunks = version.split_set(".-_+~ ");
 		int i = 0, n = 0;
 		foreach (string chunk in chunks) {
-			++i;
 			if (chunk.length<1) continue;
 			if (chunk.has_prefix("rc")) { version_rc = int.parse(chunk.substring(2)); continue; }
-			n = int.parse(chunk);
-			if (n>0 || chunk=="0") switch (i) {  // weakness, would still fail on "00"  or "000" etc
-				case 1: version_major = n; continue;
-				case 2: version_minor = n; continue;
-				case 3: version_micro = n; continue;
+			
+			// Check if the chunk is purely numeric
+			bool is_numeric = true;
+			for (int j = 0; j < chunk.length; j++) if (!(chunk[j] >= '0' && chunk[j] <= '9')) { is_numeric = false; break; }
+
+			if (is_numeric) {
+				n = int.parse(chunk);
+				++i;
+				switch (i) {
+					case 1: version_major = n; continue;
+					case 2: version_minor = n; continue;
+					case 3: version_micro = n; continue;
+				}
 			}
-			if (i>=chunks.length) {
+
+			if (i >= 3) { // Already have major.minor.micro
 				if (chunk.length==12) continue;
-				is_mainline = false;
-			} else if (i==chunks.length-1) {
-				if (chunk.contains("rc")) { var x = chunk.split("c"); version_rc = int.parse(x[x.length-1]); continue; }
-				if (version_micro<100 && chunk.has_prefix("%02d%02d%02d".printf(version_major,version_minor,version_micro))) continue;
-				else if (chunk.has_prefix("%02d%02d%d".printf(version_major,version_minor,version_micro))) continue;
+				// If it's not numeric and we already have the version, it might be extra info
+				if (!is_numeric) is_mainline = false;
 			}
 			version_extra += "."+chunk;
 		}
@@ -1090,14 +1147,128 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	}
 
 // ---------------------------------------------------------------------
-// lock_vlist()
-// lock_klist()
-// download_vlist()
-// download_klist()
-// install_vlist()
-// install_klist()
-// uninstall_vlist()
-// uninstall_klist()
+// detect_bootloader()
+// get_kernel_cmdline()
+// update_bootloader_add()
+// update_bootloader_remove()
+// lock_vlist() / lock_klist()
+// download_vlist() / download_klist()
+// install_vlist() / install_klist()
+// uninstall_vlist() / uninstall_klist()
+
+	// Returns "grub", "systemd-boot", or "unknown"
+	public static string detect_bootloader() {
+		if (exists("/boot/loader/loader.conf") || exists("/efi/loader/loader.conf")) return "systemd-boot";
+		if (exists("/boot/grub/grub.cfg") || exists("/boot/grub2/grub.cfg")) return "grub";
+		return "unknown";
+	}
+
+	// Returns the kernel boot options from the currently running kernel
+	public static string get_kernel_cmdline() {
+		string cmdline = fread("/proc/cmdline").strip();
+		string result = "";
+		foreach (var part in cmdline.split(" ")) {
+			// Strip BOOT_IMAGE which is bootloader-specific
+			if (!part.has_prefix("BOOT_IMAGE=") && part.length > 0)
+				result += part + " ";
+		}
+		return result.strip();
+	}
+
+	// Shell snippet: Save versioned kernel files for a specific version.
+	// This now explicitly runs mkinitcpio to ensure the initramfs is correct for the modules.
+	public static string shell_save_kernel_version(string version) {
+		string s = "";
+		s += "# --- Save versioned kernel files for %s ---\n".printf(version);
+		// Find the full kernel release name (uname -r style) from /usr/lib/modules
+		s += "KREL=$(ls /usr/lib/modules/ | grep '^%s' | head -1)\n".printf(version);
+		s += "if [ -n \"$KREL\" ]; then\n";
+		s += "  echo \"Generating versioned initramfs for $KREL...\"\n";
+		s += "  mkinitcpio -k \"$KREL\" -g \"/boot/initramfs-linux-%s.img\"\n".printf(version);
+		s += "  [ -f \"/boot/vmlinuz-linux\" ] && cp /boot/vmlinuz-linux \"/boot/vmlinuz-linux-%s\"\n".printf(version);
+		s += "  # Preserve modules directory so pacman doesn't permanently delete it on next update\n";
+		s += "  if [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
+		s += "    [ ! -d \"/usr/lib/modules/$KREL.mainline\" ] && cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\" || true\n";
+		s += "  fi\n";
+		s += "else\n";
+		s += "  echo \"Warning: modules for %s not found, skipping versioning steps\" >&2\n".printf(version);
+		s += "fi\n";
+		return s;
+	}
+
+	// Shell snippet: Restore module directories that were 'saved' to .mainline suffix.
+	// This ensures the kernel can actually find its drivers at boot time.
+	public static string shell_restore_modules() {
+		string s = "# --- Restore all preserved modules ---\n";
+		s += "for M in /usr/lib/modules/*.mainline; do\n";
+		s += "  [ -d \"$M\" ] || continue\n";
+		s += "  ORIG=\"${M%.mainline}\"\n";
+		s += "  if [ ! -d \"$ORIG\" ] || [ -z \"$(ls -A \"$ORIG\")\" ]; then\n";
+		s += "    echo \"Restoring modules directory: $ORIG\"\n";
+		s += "    [ -d \"$ORIG\" ] && rm -rf \"$ORIG\"\n";
+		s += "    cp -a \"$M\" \"$ORIG\"\n";
+		s += "  fi\n";
+		s += "done\n";
+		return s;
+	}
+
+	// Shell snippet: remove versioned kernel files.
+	// Does NOT update the bootloader — call shell_update_bootloader() once at the end.
+	public static string shell_remove_kernel_version(string version) {
+		string bootloader = detect_bootloader();
+		string s = "";
+		s += "# --- Remove versioned kernel files for %s ---\n".printf(version);
+		s += "rm -f /boot/vmlinuz-linux-%s\n".printf(version);
+		s += "rm -f /boot/initramfs-linux-%s.img\n".printf(version);
+		s += "rm -f /boot/initramfs-linux-%s-fallback.img\n".printf(version);
+		// Remove both the active modules and the preserved copy
+		s += "for MDIR in $(ls /usr/lib/modules/ | grep '^%s'); do\n".printf(version);
+		s += "  rm -rf \"/usr/lib/modules/$MDIR\" \"/usr/lib/modules/$MDIR.mainline\" || true\n";
+		s += "done\n";
+		// For systemd-boot, remove the entry file immediately since entries are per-version
+		if (bootloader == "systemd-boot") {
+			string boot_dir = exists("/boot/loader") ? "/boot" : "/efi";
+			s += "rm -f '%s/loader/entries/mainline-linux-%s.conf'\n".printf(boot_dir, version);
+		}
+		return s;
+	}
+
+	// Shell snippet: update the bootloader to reflect current /boot contents.
+	// For GRUB: regenerates grub.cfg (detects all vmlinuz-* automatically).
+	// For systemd-boot: creates/updates entries for all mainline versioned kernels found.
+	public static string shell_update_bootloader() {
+		string cmdline = get_kernel_cmdline();
+		string s = "# --- Update bootloader (Auto-detecting on host) ---\n";
+		
+		s += "if [ -f /boot/grub/grub.cfg ]; then\n";
+		s += "  echo 'Detected GRUB... updating config'\n";
+		s += "  grub-mkconfig -o /boot/grub/grub.cfg\n";
+		s += "elif [ -f /boot/grub2/grub.cfg ]; then\n";
+		s += "  echo 'Detected GRUB2... updating config'\n";
+		s += "  grub-mkconfig -o /boot/grub2/grub.cfg\n";
+		s += "elif [ -d /boot/loader/entries ] || [ -d /efi/loader/entries ]; then\n";
+		s += "  echo 'Detected systemd-boot... updating entries'\n";
+		s += "  BOOT_DIR='/boot'\n";
+		s += "  [ -d /efi/loader/entries ] && BOOT_DIR='/efi'\n";
+		s += "  # Recreate entries for every versioned mainline kernel currently in /boot\n";
+		s += "  for KIMG in /boot/vmlinuz-linux-*; do\n";
+		s += "    [ -f \"$KIMG\" ] || continue\n";
+		s += "    KVER=$(basename \"$KIMG\" | sed 's/vmlinuz-linux-//')\n";
+		s += "    ENTRY=\"$BOOT_DIR/loader/entries/mainline-linux-$KVER.conf\"\n";
+		s += "    echo \"Creating entry: $ENTRY\"\n";
+		s += "    cat > \"$ENTRY\" << SDBOOTEOF\n";
+		s += "title   Mainline Linux $KVER\n";
+		s += "linux   /vmlinuz-linux-$KVER\n";
+		s += "initrd  /initramfs-linux-$KVER.img\n";
+		s += "options %s\n".printf(cmdline);
+		s += "SDBOOTEOF\n";
+		s += "  done\n";
+		s += "else\n";
+		s += "  echo 'Warning: unknown bootloader, skipping update' >&2\n";
+		s += "fi\n";
+		
+		return s;
+	}
 
 	public static int lock_vlist(bool lck,string list="") {
 		return lock_klist(lck,vlist_to_klist(list));
@@ -1135,48 +1306,79 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		return install_klist(vlist_to_klist(list));
 	}
 
-	// dep: dpkg
+	// dep: pacman
 	public static int install_klist(Gee.ArrayList<LinuxKernel> klist) {
 		vprint("install_klist()",3);
 
 		if (!App.try_repo()) return 1;
 
 		string[] flist = {};
+		var to_install = new Gee.ArrayList<LinuxKernel>();
 		foreach (var k in klist) {
 			var v = k.version_main;
-
-			if (k.is_installed) {
-				vprint(_("%s is already installed").printf(v),1,stderr);
-				continue;
-			}
-
-			if (k.is_locked) {
-				vprint(_("%s is locked").printf(v),1,stderr);
-				continue;
-			}
-
-			if (k.is_invalid) {
-				vprint(_("%s is invalid").printf(v),1,stderr);
-				continue;
-			}
-
-			if (!k.download_packages()) {
-				vprint(_("%s download failed").printf(v),1,stderr);
-				continue;
-			}
-
+			if (k.is_installed) { vprint(_("%s is already installed").printf(v),1,stderr); continue; }
+			if (k.is_locked)    { vprint(_("%s is locked").printf(v),1,stderr);            continue; }
+			if (k.is_invalid)   { vprint(_("%s is invalid").printf(v),1,stderr);           continue; }
+			if (!k.download_packages()) { vprint(_("%s download failed").printf(v),1,stderr); continue; }
 			vprint(_("Installing %s").printf(v));
 			foreach (var f in k.pkg_url_list.keys) flist += k.CACHE_KDIR+"/"+f;
+			to_install.add(k);
 		}
 
-		if (flist.length==0) { vprint(_("Install: no installable kernels specified")); return 1; }
+		if (flist.length == 0) { vprint(_("Install: no installable kernels specified")); return 1; }
 
-		string cmd = "";
-		foreach (var f in flist) { cmd += " '"+f+"'"; }
-		cmd = sanitize_cmd(wrap_host_cmd(App.auth_cmd)).printf("pacman -U --noconfirm "+cmd);
-		vprint("Executing: " + cmd, 0);
-		if (!ask()) return 1;
-		var r = Posix.system(cmd);
+		// Build a root shell script:
+		// 1. Save running kernel versioned files (before pacman replaces /boot/vmlinuz-linux)
+		// 2. Install via pacman
+		// 3. Save newly installed kernel versioned files
+		// 4. Update bootloader
+		string script = "#!/bin/bash\nset -e\n\n";
+
+		// Step 1: Save ALL installed kernels' boot files before they get replaced.
+		// This is critical for Arch where pacman might delete modules of other kernels.
+		foreach (var k in kernel_list) {
+			if (k.is_installed) {
+				script += "# Ensure kernel %s is versioned and preserved\n".printf(k.version_main);
+				script += "if [ ! -f '/boot/vmlinuz-linux-%s' ]; then\n".printf(k.version);
+				script += shell_save_kernel_version(k.version);
+				script += "else\n";
+				// Even if the boot files exist, ensure the modules are preserved in .mainline
+				script += "  KREL=$(ls /usr/lib/modules/ | grep '^%s' | head -1)\n".printf(k.version);
+				script += "  if [ -n \"$KREL\" ] && [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
+				script += "    [ ! -d \"/usr/lib/modules/$KREL.mainline\" ] && cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\" || true\n";
+				script += "  fi\n";
+				script += "fi\n\n";
+			}
+		}
+
+		// Step 2 & 3: Install and Save each newly installed kernel's versioned files
+		foreach (var k in to_install) {
+			string k_pkg_args = "";
+			foreach (var f in k.pkg_url_list.keys) k_pkg_args += " '%s'".printf(k.CACHE_KDIR+"/"+f);
+			script += "# Install and version kernel %s\n".printf(k.version_main);
+			script += "pacman -U --noconfirm%s\n".printf(k_pkg_args);
+			script += shell_save_kernel_version(k.version);
+			script += "\n";
+		}
+
+		// Step 4: Restore modules and update bootloader
+		script += shell_restore_modules();
+		script += shell_update_bootloader();
+		script += "\n";
+
+		// Write and execute the script with root privileges
+		// NOTE: Must use CACHE_DIR (not /tmp) because when running inside Flatpak,
+		// /tmp is a private container tmpfs and is NOT visible to flatpak-spawn --host.
+		string script_path = Main.CACHE_DIR + "/mainline-install-%s.sh".printf(
+			"%08x".printf(Main.rnd.next_int()));
+		fwrite(script_path, script);
+		vprint("Install script: " + script_path, 3);
+
+		string auth_cmd = sanitize_cmd(wrap_host_cmd(App.auth_cmd)).printf("bash '" + script_path + "'");
+		vprint("Executing: " + auth_cmd, 0);
+		if (!ask()) { rm(script_path); return 1; }
+		var r = Posix.system(auth_cmd);
+		rm(script_path);
 		if (!App.keep_pkgs) foreach (var f in flist) rm(f);
 		return r;
 	}
@@ -1185,37 +1387,58 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		return uninstall_klist(vlist_to_klist(list));
 	}
 
-	// dep: dpkg
+	// dep: pacman
 	public static int uninstall_klist(Gee.ArrayList<LinuxKernel> klist) {
 		vprint("uninstall_klist()",3);
 
 		string pnames = "";
+		var to_remove = new Gee.ArrayList<LinuxKernel>();
 		foreach (var k in klist) {
 			var v = k.version_main;
-
-			if (k.is_running) {
-				vprint(_("%s is running").printf(v),1,stderr);
-				continue;
-			}
-
-			if (k.is_locked) {
-				vprint(_("%s is locked").printf(v),1,stderr);
-				continue;
-			}
-
+			if (k.is_running) { vprint(_("%s is running").printf(v),1,stderr); continue; }
+			if (k.is_locked)  { vprint(_("%s is locked").printf(v),1,stderr);  continue; }
 			vprint(_("Uninstalling %s").printf(v));
 			foreach (var p in k.pkg_list) {
 				pnames += " '"+p+"'";
 				vprint(_("found")+" : "+p,2);
 			}
+			to_remove.add(k);
 		}
 		pnames = pnames.strip();
-		if (pnames.length<1) { vprint(_("Uninstall: no uninstallable packages found"),1,stderr); return 1; }
+		if (to_remove.size < 1) { vprint(_("Uninstall: no kernels to remove"),1,stderr); return 1; }
+		
+		string script = "#!/bin/bash\nset -e\n\n";
 
-		var cmd = sanitize_cmd(wrap_host_cmd(App.auth_cmd)).printf("pacman -R --noconfirm "+pnames);
-		vprint(cmd,2);
-		if (!ask()) return 1;
-		return Posix.system(cmd);
+		// Step 1: Remove versioned boot files and conditionally uninstall via pacman
+		foreach (var k in to_remove) {
+			script += "# --- Uninstalling kernel %s ---\n".printf(k.version_main);
+			foreach (var p in k.pkg_list) {
+				// Only uninstall via pacman if the installed version matches exactly
+				script += "if [ \"$(pacman -Q %s 2>/dev/null | cut -d' ' -f2)\" == \"%s\" ]; then\n".printf(p, k.vers);
+				script += "  pacman -R --noconfirm %s\n".printf(p);
+				script += "fi\n";
+			}
+			script += shell_remove_kernel_version(k.version);
+			script += "\n";
+		}
+
+		// Update modules and bootloader ONCE after all files are removed
+		script += shell_restore_modules();
+		script += shell_update_bootloader();
+		script += "\n";
+
+		// NOTE: Must use CACHE_DIR (not /tmp) — same reason as install_klist above.
+		string script_path = Main.CACHE_DIR + "/mainline-uninstall-%s.sh".printf(
+			"%08x".printf(Main.rnd.next_int()));
+		fwrite(script_path, script);
+		vprint("Uninstall script: " + script_path, 3);
+
+		string auth_cmd = sanitize_cmd(wrap_host_cmd(App.auth_cmd)).printf("bash '" + script_path + "'");
+		vprint(auth_cmd, 2);
+		if (!ask()) { rm(script_path); return 1; }
+		var r = Posix.system(auth_cmd);
+		rm(script_path);
+		return r;
 	}
 
 // ---------------------------------------------------------------------

@@ -27,12 +27,17 @@ public Main App;
 public class AppGtk : Adw.Application {
 
 	public AppGtk() {
-		Object(application_id: null, flags: ApplicationFlags.DEFAULT_FLAGS);
+		ApplicationFlags flags = ApplicationFlags.DEFAULT_FLAGS;
+		string? id = "org.bkw777.mainline";
+		if (Posix.getuid() == 0) {
+			id = null;
+			flags |= ApplicationFlags.NON_UNIQUE;
+		}
+		Object(application_id: id, flags: flags);
 	}
 
 	protected override void startup() {
 		base.startup();
-		Gtk.Window.set_default_icon_name(BRANDING_SHORTNAME);
 
 		// Add local pixmaps to search path for development
 		var icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());

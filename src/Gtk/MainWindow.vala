@@ -475,7 +475,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	}
 
 	void do_about() {
-		string[] developers = {
+		const string[] developers = {
 			"john peter sa <johnppetersa@gmail.com> (Arch Maintainer)",
 			"Brian K. White <b.kenyon.w@gmail.com> (Original Author)",
 			"Tony George <teejeetech@gmail.com> (Original Author)",
@@ -486,30 +486,30 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		const string[] notice_sh = { "Brian K. White (https://github.com/bkw777/notice.sh)" };
 
-		var dialog = new Adw.AboutDialog();
-		dialog.application_name = BRANDING_LONGNAME;
-		dialog.application_icon = BRANDING_SHORTNAME;
-		dialog.version = BRANDING_VERSION;
-		dialog.developer_name = BRANDING_AUTHORNAME;
-		dialog.website = BRANDING_WEBSITE;
-		dialog.issue_url = BRANDING_WEBSITE + "/issues";
-		dialog.comments = _("A tool for installing kernel packages\nfrom the Arch Linux Archive");
-		dialog.copyright = "\"ukuu\" 2015 Tony George\n\"" + BRANDING_SHORTNAME + "\" " + BRANDING_COPYRIGHT + " " + BRANDING_AUTHORNAME;
-		dialog.license_type = Gtk.License.GPL_3_0;
-		dialog.set("developers", developers, null);
+		var dialog = new Adw.AboutDialog() {
+			application_name = BRANDING_LONGNAME,
+			application_icon = BRANDING_SHORTNAME,
+			version = BRANDING_VERSION,
+			developer_name = BRANDING_AUTHORNAME,
+			website = BRANDING_WEBSITE,
+			issue_url = BRANDING_WEBSITE + "/issues",
+			comments = _("A tool for installing kernel packages\nfrom the Arch Linux Archive"),
+			copyright = "Copyright 2015 Tony George (ukuu)\nCopyright %s %s %s".printf(BRANDING_COPYRIGHT, BRANDING_AUTHORNAME, BRANDING_SHORTNAME),
+			license_type = Gtk.License.GPL_3_0,
+			debug_info = "Kernel: %s\nArch: %s".printf(LinuxKernel.RUNNING_KERNEL, LinuxKernel.NATIVE_ARCH)
+		};
+		dialog.set_developers(developers);
+
 		
-		// Improve translator formatting: replace the spaces between entries with newlines
 		if (TRANSLATORS != null) {
 			dialog.translator_credits = TRANSLATORS.replace("> ", ">\n");
 		}
 
 		dialog.add_acknowledgement_section(_("Inclusions"), notice_sh);
 
-		// The icon 'mainline' is now in the search path added in AppGtk.vala
-		dialog.application_icon = BRANDING_SHORTNAME;
-
 		dialog.present(this);
 	}
+
 
 	void update_cache(bool reload = false) {
 		vprint("update_cache(reload=" + reload.to_string() + ")", 3);

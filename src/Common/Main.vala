@@ -150,7 +150,7 @@ enum SIG {
 extern void exit(int exit_code);
 
 //public class Main : GLib.Object {
-public class Main : Application {
+public class Main : GLib.Object {
 
 	public string CONFIG_DIR = "";
 	public static string CACHE_DIR = "";
