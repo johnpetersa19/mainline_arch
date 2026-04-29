@@ -4,20 +4,28 @@ import os
 base = '/home/john/Projects/mainline'
 
 meson_root = """project('mainline', ['vala', 'c'],
-  version: '1.4.13',
+  version: '1.5.0',
   meson_version: '>= 0.50.0',
 )
 
 prefix = get_option('prefix')
+if prefix == '/usr/local'
+  prefix = '/usr'
+endif
 c_args = [
+  # Suppress warnings from Vala-generated C code (not fixable in Vala source)
+  '-Wno-unused-variable',
+  '-Wno-unused-but-set-variable',
+  '-Wno-pointer-sign',
+  '-Wno-deprecated-declarations',
   '-DINSTALL_PREFIX="' + prefix + '"',
   '-DBRANDING_SHORTNAME="mainline"',
-  '-DBRANDING_LONGNAME="Mainline Kernels"',
-  '-DBRANDING_VERSION="1.4.13"',
-  '-DBRANDING_COPYRIGHT="2019"',
-  '-DBRANDING_AUTHORNAME="Brian K. White"',
-  '-DBRANDING_AUTHOREMAIL="b.kenyon.w@gmail.com"',
-  '-DBRANDING_WEBSITE="https://github.com/bkw777/mainline"',
+  '-DBRANDING_LONGNAME="Mainline Kernels (Arch Linux)"',
+  '-DBRANDING_VERSION="1.5.0"',
+  '-DBRANDING_COPYRIGHT="2026"',
+  '-DBRANDING_AUTHORNAME="Mainline Project Contributors"',
+  '-DBRANDING_AUTHOREMAIL="johnppetersa@gmail.com"',
+  '-DBRANDING_WEBSITE="https://github.com/johnpetersa19/mainline_arch"',
   '-DGETTEXT_PACKAGE="mainline"',
 ]
 
@@ -29,10 +37,8 @@ c_args += '-DTRANSLATORS="' + translators + '"'
 add_project_arguments(c_args, language: 'c')
 
 vala_args = [
-  '--target-glib=2.32',
+  '--target-glib=2.86',
   '-D', 'GLIB_JSON_1_6',
-  '-D', 'VTE_0_72',
-  '-D', 'VTE_0_66'
 ]
 add_project_arguments(vala_args, language: 'vala')
 
@@ -91,9 +97,14 @@ executable('mainline-gtk',
 )
 """
 
-meson_data = """install_data('mainline.desktop.in',
-  install_dir: get_option('datadir') / 'applications',
-  rename: 'mainline.desktop'
+meson_data = """configure_file(
+  input: 'mainline.desktop.in',
+  output: 'mainline.desktop',
+  configuration: {
+    'BRANDING_LONGNAME': 'Mainline Kernels (Arch Linux)',
+    'BRANDING_SHORTNAME': 'mainline',
+  },
+  install_dir: get_option('datadir') / 'applications'
 )
 
 # Instalação de ícones e pixmaps
@@ -103,7 +114,8 @@ install_data('sort_by_notes.png', install_dir: get_option('datadir') / 'pixmaps/
 install_data('sort_by_status.png', install_dir: get_option('datadir') / 'pixmaps/mainline')
 install_data('tux-red.png', install_dir: get_option('datadir') / 'pixmaps/mainline')
 install_data('tux.png', install_dir: get_option('datadir') / 'pixmaps/mainline')
-install_data('ubuntu-logo.png', install_dir: get_option('datadir') / 'pixmaps/mainline')
+install_data('arch-logo.png', install_dir: get_option('datadir') / 'pixmaps/mainline')
+install_data('pixmaps/mainline.svg', install_dir: get_option('datadir') / 'pixmaps')
 """
 
 meson_po = """i18n = import('i18n')
@@ -123,4 +135,5 @@ with open(f"{base}/data/meson.build", "w") as f:
 with open(f"{base}/po/meson.build", "w") as f:
     f.write(meson_po)
 
-print("Meson setup (GTK4) complete.")
+print("Meson setup (GTK4) complete for Arch Linux.")
+

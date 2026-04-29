@@ -1,19 +1,20 @@
 # Mainline Kernels (Arch Linux)
 A tool for installing kernels from the [Arch Linux Archive](https://archive.archlinux.org/packages/l/linux/) onto Arch-based distributions.
+**Current Version: 1.5.0** (The Arch Linux Edition)
 
-![Main window screenshot](main_window.png)
+![Main window screenshot](data/main_window.png)
 
 ## About
 **mainline** is a tool for Arch Linux users to easily browse, install, and manage kernel versions from the official Arch Linux Archive. This is a fork of the original mainline tool, now modernized with **GTK4** and **Libadwaita**.
 
 Sort by the Lock column to collect all the locked kernels together
-![sort by locked](sort_by_locked.png)
+![sort by locked](data/sort_by_locked.png)
 
 Sort by the Status column to collect all the installed kernels together
-![sort by status](sort_by_status.png)
+![sort by status](data/sort_by_status.png)
 
 Sort by the Notes column to see all kernels with any remarks
-![sort_by_notes](sort_by_notes.png)
+![sort_by_notes](data/sort_by_notes.png)
 
 ## About
 mainline is a fork of [ukuu](https://github.com/teejee2008/ukuu)  
@@ -32,6 +33,22 @@ mainline is a fork of [ukuu](https://github.com/teejee2008/ukuu)
 * Pinning/locking kernels
 * Support for Arch Linux Archive and pacman integration
 * Customizable external commands for the terminal window and for root access
+* **Version 1.5.0 specific:** Complete sanitization of Ubuntu/Debian legacy code, translations updated for Arch, and robust kernel versioning logic for multi-kernel support.
+
+## Evolution: From v1.4.13 to v1.5.0
+This project has evolved from the original **v1.4.13** (which was focused on Ubuntu/Debian) to the current **v1.5.0** optimized for **Arch Linux**.
+
+| Feature | Original (v1.4.13) | v1.5.0 (Arch Edition) |
+| :--- | :--- | :--- |
+| **Platform** | Ubuntu / Debian | **Arch Linux** |
+| **Repository** | Ubuntu Mainline PPA | **Arch Linux Archive** |
+| **Toolkit** | GTK3 / Legacy | **GTK4 + Libadwaita** |
+| **Package Type** | `.deb` | **`.pkg.tar.zst`** |
+| **Management** | `dpkg` / `apt` | **`pacman`** |
+| **Build System** | `Makefile` | **`Meson` + `Ninja`** |
+| **Kernel Logic** | Standard overwriting | **Versioned side-by-side support** |
+| **Initramfs** | Triggers | **Native `mkinitcpio` integration** |
+| **Secure Boot** | Legacy scripts | **Modern `sbctl` guidance** |
 
 ## Features
 * Download the list of available kernels from the [Arch Linux Archive](https://archive.archlinux.org/packages/l/linux/)
@@ -48,7 +65,7 @@ To build and install on Arch Linux:
 sudo pacman -S base-devel vala meson ninja libgee json-glib vte3-gtk4 libadwaita aria2
 
 # Clone and build
-git clone https://github.com/johnppetersa/mainline.git
+git clone https://github.com/johnpetersa19/mainline_arch.git
 cd mainline
 meson setup build --prefix=/usr
 ninja -C build
@@ -104,7 +121,7 @@ The gui "Install" and "Uninstall" buttons are inactive on that kernel.
 The cli "--install" and "--uninstall" commands ignore that kernel.  
 The gui "Uninstall Old" button and the cli "--uninstall-old" command ignore that kernel.  
 The cli "--install-latest" and "--notify" for the background notification ignore that kernel.  
-The kernel is still visible, you can still write notes and pull up the PPA info page and toggle the lock to unlock it.
+The kernel is still visible, you can still write notes and pull up the Archive info page and toggle the lock to unlock it.
 
 This can be handy to keep a stock distribution kernel from being uninstalled by "Uninstall Old", or prevent a known buggy kernel from being installed by "--install-latest" and prevent "--notify" from generating a notification to install it.
 
@@ -120,7 +137,7 @@ Sorting on the "Notes" column is a way to see all kernels that have any notes to
 
 # Help / FAQ
 
-## [MainlineBuilds WIKI](https://wiki.ubuntu.com/Kernel/MainlineBuilds)
+## [Arch Linux Archive](https://archive.archlinux.org/packages/l/linux/)
 
 ## General debugging  
   The `-v` or `-v #` option, or the environment variable `VERBOSE=#`, enables increasing levels of verbosity.  
@@ -142,34 +159,23 @@ Sorting on the "Notes" column is a way to see all kernels that have any notes to
   `VERBOSE=0 ;mainline install-latest --yes && mainline uninstall-old --yes`  
 
 ## If **Uninstall Old** doesn't remove some distribution kernel packages  
-  Use your normal package manager like apt or synaptic to remove the parent meta-package:  
-  `$ sudo apt remove linux-image-generic`  
+  Use your normal package manager like pacman to remove the parent meta-package:  
+  `$ sudo pacman -Rs linux`  
   Then **Uninstall Old** should successfully remove everything.  
 
 ## Secure Boot  
-  If you want to have secure boot, then you need to have a signed kernel, and the mainline kernels are not signed.
-
-  This might be an answer.  
-  I did not write this, have not tried to use it, nor even looked at it's code to see if it should be trusted.  
-  It appears to be a script that you install in /etc that will be automatically triggered by dpkg as a post-install step.  
-  (I think you also have to read the rest of the readme to set up a shim and owner-key etc, this script would just be the last step to integrate with dpkg after you got everything else actually working.)  
-  https://github.com/berglh/ubuntu-sb-kernel-signing?tab=readme-ov-file#automated-signing-of-mainline-kernels-installed-with-mainline-or-via-dpkg
-  <!-- https://github.com/M-P-P-C/Signing-a-Linux-Kernel-for-Secure-Boot -->
+  If you want to have secure boot, then you need to have a signed kernel. Mainline kernels are not signed by default.
+  On Arch Linux, you can use tools like [sbctl](https://github.com/Foxboron/sbctl) to sign your own kernels.
 
 ## Kernels with broken dependencies  
-  The build environment that builds the kernels is newer than most installed systems, and so the built kernels occasionally but regularly break compatibility with all current release and older systems.
-
-  The only convenient, practical, clean, safe resolution is "Update your system to the level that includes those dependencies naturally.".  
-  And don't install any newer kernels until that is possible. And if that means the next version of Ubuntu isn't even due to be released for another 6 months, so be it.
-
-  Otherwise, here are some hack options you may amuse yourself with (substitute "libssl3" for whatever is actually broken for you today): [Install libssl3](../../wiki/Install-libssl3)  
-  TLDR: monkey with apt configs to add beta repos and use priority settings and pinning to try to only let certain packages auto update from them, or manually download specific .deb files from the beta repos and install them with dpkg.
-
-  See [Not Features](#not-features)
+  The build environment for kernels might occasionally break compatibility with your current system.
+  The best resolution is to keep your system updated:
+  `$ sudo pacman -Syu`
+  And don't install any newer kernels until any conflicts are resolved.
 
 ## Missing kernels  
   Only viable installable kernels are shown by default. Failed or incomplete builds for your platform/arch are not shown unless the "Hide Invalid" setting is un-selected.  
-  If you think the list is missing a kernel, press the "PPA" button to jump to the mainline-ppa web site where the .deb packages come from, and look at the build results for the missing kernel, and you will usually find that it is a failed or incomplete build for your arch (ex: amd64), and can not be installed.
+  If you think the list is missing a kernel, press the "Repo" button to jump to the Arch Linux Archive where the packages come from.
 
 # TODO & WIP
 * Replace Process.spawn_async_with_pipes("aria2c ...",...) with libcurl  
@@ -187,15 +193,15 @@ Sorting on the "Notes" column is a way to see all kernels that have any notes to
 ```
 $ sudo -i
 # cat >/etc/cron.d/mainline <<-%EOF
-	# Check for new kernels on kernel.ubuntu.com every 4 hours, randomize over ~2.8 hours
+	# Check for new kernels every 4 hours, randomize over ~2.8 hours
 	1 */4 * * * root sleep ${RANDOM:0:4} ;VERBOSE=0 ;mainline --install-latest --yes && { mainline --uninstall-old --yes ;for a in /home/*/.Xauthority ;do echo [[ -s $a ]] && DISPLAY=:0.0 XAUTHORITY=$a notify-send -t 0 -a mainline -i mainline "Mainline Kernels" "New kernel installed" ;done ; }
 %EOF
 ```
 
 * external terminal app
 
-`sudo apt install cool-retro-term`  
+`sudo pacman -S cool-retro-term`  
 
-![settings](settings.jpg)
+![settings](data/settings.jpg)
 
 ![cool-retro-term](cool-retro-term.jpg)

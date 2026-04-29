@@ -120,6 +120,33 @@ public class SettingsWindow : Adw.PreferencesDialog {
 		row_checksums.active = App.verify_checksums;
 		row_checksums.notify["active"].connect(() => { App.verify_checksums = row_checksums.active; });
 		group_network.add(row_checksums);
+		
+		// Keep Packages
+		var row_keep_pkgs = new Adw.SwitchRow();
+		row_keep_pkgs.title = _("Keep Packages");
+		row_keep_pkgs.subtitle = _("Retain downloaded *.pkg.tar.zst files after install");
+		row_keep_pkgs.active = App.keep_pkgs;
+		row_keep_pkgs.notify["active"].connect(() => { App.keep_pkgs = row_keep_pkgs.active; });
+		group_network.add(row_keep_pkgs);
+
+		// Keep Cache
+		var row_keep_cache = new Adw.SwitchRow();
+		row_keep_cache.title = _("Keep Cache");
+		row_keep_cache.subtitle = _("Don't trim the cached index files");
+		row_keep_cache.active = App.keep_cache;
+		row_keep_cache.notify["active"].connect(() => { App.keep_cache = row_keep_cache.active; });
+		group_network.add(row_keep_cache);
+
+		// Proxy
+		var group_proxy = new Adw.PreferencesGroup();
+		group_proxy.title = _("Proxy");
+		page_network.add(group_proxy);
+
+		var row_proxy = new Adw.EntryRow();
+		row_proxy.title = _("Proxy URL");
+		row_proxy.text = App.all_proxy;
+		row_proxy.notify["text"].connect(() => { App.all_proxy = row_proxy.text.strip(); });
+		group_proxy.add(row_proxy);
 
 		// Page 4: External Commands
 		var page_commands = new Adw.PreferencesPage();

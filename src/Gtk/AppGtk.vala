@@ -41,6 +41,10 @@ public class AppGtk : Adw.Application {
 
 		// Add local pixmaps to search path for development
 		var icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
+		string path = Path.build_filename(Environment.get_current_dir(), "data", "pixmaps");
+		if (FileUtils.test(path, FileTest.IS_DIR)) icon_theme.add_search_path(path);
+		
+		// Also try the hardcoded path as fallback
 		icon_theme.add_search_path("/home/john/Projects/mainline/data/pixmaps");
 	}
 

@@ -7,6 +7,7 @@ posix_dep = meson.get_compiler('vala').find_library('posix')
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
 
+# Dependências atualizadas para GTK4 e Libadwaita
 gtk_dep = dependency('gtk4')
 adw_dep = dependency('libadwaita-1')
 vte_dep = dependency('vte-2.91-gtk4')

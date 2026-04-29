@@ -220,7 +220,7 @@ public class Main : GLib.Object {
 
 	public Main() {
 		Intl.setlocale(LocaleCategory.ALL,"");
-		Intl.bindtextdomain(GETTEXT_PACKAGE, "/app/share/locale");
+		Intl.bindtextdomain(GETTEXT_PACKAGE, LOCALE_DIR);
 		Intl.bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 		Intl.textdomain(GETTEXT_PACKAGE);
 

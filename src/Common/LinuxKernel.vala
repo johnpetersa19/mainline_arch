@@ -6,8 +6,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 	public string version = "";      // display version without _flavor
 	public string flavor = "";       // generic, lowlatency, lpae, etc
-	public string name = "";         // dpkg name
-	public string vers = "";         // dpkg version
+	public string name = "";         // package name
+	public string vers = "";         // package version
 	public string version_main = ""; // display version with _flavor
 	public string page_uri = "";
 	public string notes = "";
@@ -22,7 +22,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 	public Gee.HashMap<string,string> pkg_url_list = new Gee.HashMap<string,string>(); // assosciated packages K=filename,V=url
 	public Gee.HashMap<string,string> pkg_checksum_list = new Gee.HashMap<string,string>(); // assosciated packages K=filename,V=checksum
-	public string[] pkg_list = {}; // assosciated dpkg package names
+	public string[] pkg_list = {}; // associated package names
 
 	public int REPO_DIRS_VER = 0; // 0 = not set, 1 = old single dirs, 2 = new /<arch>/ subdirs
 	public string CACHE_KDIR;
@@ -149,7 +149,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		//kernel_last_unstable_repo_dirs_v2 = new LinuxKernel("x.y-rcZ");
 	}
 
-	// dep: lsb_release
+	// dep: lsb_release, os-release
 	public static string check_distribution() {
 		vprint("check_distribution()",3);
 		string dist = "";
@@ -158,6 +158,18 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		int e = exec_sync_argv({"lsb_release", "-sd"}, out std_out, out std_err);
 		if ((e == 0) && (std_out != null)) {
 			dist = std_out.strip();
+		} else if (exists("/etc/os-release")) {
+			// Fallback to /etc/os-release for Arch Linux
+			string content = fread("/etc/os-release");
+			foreach (var line in content.split("\n")) {
+				if (line.has_prefix("PRETTY_NAME=")) {
+					dist = line.replace("PRETTY_NAME=", "").replace("\"", "").strip();
+					break;
+				}
+			}
+		}
+
+		if (dist != "") {
 			vprint(_("Distribution")+": "+dist,2);
 		}
 
@@ -499,7 +511,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				// FIXME - See also load_cached_page() rex_image
 				//
 				// We have to somehow determine the "flavor" from the information
-				// available from dpkg. The flavor is part of p.name, but it's
+				// available from pacman. The flavor is part of p.name, but it's
 				// hard to isolate it, because although it is always a suffix
 				// seperated by "-", like "-foo", "foo" itself can also contain
 				// anything, including "-". "###-generic-64k"  "###-generic-lpae"
@@ -520,7 +532,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				// for a given kernel, which is then needed by set_pkg_list().
 				// As long as it's only used internally as a unique identifier,
 				// then it only needs to be unique and reproducible from the different
-				// sources of info like dpkg and web pages, not meaningfully correct.
+				// sources of info like pacman and web pages, not meaningfully correct.
 				//
 				// The problems are:
 				// * It will break if there is ever a flavor named "64k" or
@@ -529,7 +541,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				// * We are displaying this wrong "flavor" value in the kernel
 				//   list in the form of the constructed value version_main.
 				//
-				// Mostly no one sees the problem because the amd64 arch doesn't
+				// Mostly no one sees the problem because the x86_64 arch doesn't
 				// happen to have any flavors with embedded "-" so far.
 				//
 				var x = p.name.split("-");
@@ -754,7 +766,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	//    v6.1-rc8/
 	//    v6.1.9/
 	//
-	// version field from dpkg from installed packages
+	// version field from pacman from installed packages
 	//    5.19.0-42.43                  distro package
 	//    5.4.0-155.172                 distro package
 	//    6.3.6-060306.202306050836     mainline package
@@ -871,7 +883,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			// you've installed them. The new packages have the same base name & version,
 			// just with a new later .123456789012 datestamp suffix in the vers field.
 			// This breaks us because the 'vers' we get from todays index.html
-			// no longer matches the 'p.vers' we get from the installed packages in dpkg.
+			// no longer matches the 'p.vers' we get from the installed packages in pacman.
 			//
 			// pkg on archive.archlinux.org today   installed pkg from archive.archlinux.org a week ago
 			// vers=6.4.6-060406.202308041557   p.vers=6.4.6-060406.202307241739

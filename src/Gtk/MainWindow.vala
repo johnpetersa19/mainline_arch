@@ -64,6 +64,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		set_default_size(App.window_width, App.window_height);
 
 		title = BRANDING_LONGNAME;
+		icon_name = "mainline";
 		cursor_busy = new Gdk.Cursor.from_name("wait", null);
 
 		selected_kernels = new Gee.ArrayList<LinuxKernel>();
@@ -444,7 +445,21 @@ public class MainWindow : Adw.ApplicationWindow {
 	}
 
 	void do_settings() {
+		// capture some settings before to detect if they change
+		var old_hide_invalid = App.hide_invalid;
+		var old_hide_unstable = App.hide_unstable;
+		var old_hide_flavors = App.hide_flavors;
+		var old_previous_majors = App.previous_majors;
+
 		var swin = new SettingsWindow();
+		swin.unrealize.connect(() => {
+			App.save_app_config();
+			// if the selection set changed, then update cache
+			if (App.hide_invalid != old_hide_invalid ||
+				App.hide_unstable != old_hide_unstable ||
+				App.hide_flavors != old_hide_flavors ||
+				App.previous_majors != old_previous_majors) update_cache();
+		});
 		swin.present(this);
 	}
 
@@ -464,7 +479,8 @@ public class MainWindow : Adw.ApplicationWindow {
 			version = BRANDING_VERSION,
 			comments = _("A tool for installing kernel packages\nfrom the Arch Linux Archive"),
 			website = BRANDING_WEBSITE,
-			license_type = Gtk.License.GPL_3_0
+			license_type = Gtk.License.GPL_3_0,
+			translator_credits = TRANSLATORS
 		};
 		dialog.set_developers(developers);
 		dialog.present(this);

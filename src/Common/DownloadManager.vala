@@ -116,7 +116,7 @@ public class DownloadTask : AsyncTask {
 
 public class DownloadItem : GLib.Object {
 	public string source_uri = "";   // "https://archive.archlinux.org/packages/l/linux/linux-6.2.7.arch1-1-x86_64.pkg.tar.zst"
-	public string download_dir = ""; // "/home/bkw/.cache/mainline/6.2.7/amd64"
+	public string download_dir = ""; // "/home/john/.cache/mainline/6.2.7/x86_64"
 	public string file_name = "";    // "linux-6.2.7.arch1-1-x86_64.pkg.tar.zst"
 	public string checksum = "";     // "sha-256=4a90d708984d6a8fab68411710be09aa2614fe1be5b5e054a872b155d15faab6"
 

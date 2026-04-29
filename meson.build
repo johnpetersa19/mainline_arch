@@ -1,5 +1,5 @@
 project('mainline', ['vala', 'c'],
-  version: '1.4.13',
+  version: '1.5.0',
   meson_version: '>= 0.50.0',
 )
 
@@ -16,15 +16,15 @@ c_args = [
   '-DINSTALL_PREFIX="' + prefix + '"',
   '-DBRANDING_SHORTNAME="mainline"',
   '-DBRANDING_LONGNAME="Mainline Kernels (Arch Linux)"',
-  '-DBRANDING_VERSION="1.4.13"',
+  '-DBRANDING_VERSION="1.5.0"',
   '-DBRANDING_COPYRIGHT="2026"',
   '-DBRANDING_AUTHORNAME="Mainline Project Contributors"',
   '-DBRANDING_AUTHOREMAIL="johnppetersa@gmail.com"',
-  '-DBRANDING_WEBSITE="https://github.com/johnppetersa/mainline"',
+  '-DBRANDING_WEBSITE="https://github.com/johnpetersa19/mainline_arch"',
   '-DGETTEXT_PACKAGE="mainline"',
 ]
 
-# Generate TRANSLATORS macro
+# Gera a macro TRANSLATORS
 translators_cmd = run_command('sh', '-c', 'grep \'^"Last-Translator: \' po/*.po | while IFS=\'/.:\' read x l x x n ; do echo "$l:${n%\\n*}"; done | tr "\n" " " || true', check: false)
 translators = translators_cmd.stdout().strip()
 c_args += '-DTRANSLATORS="' + translators + '"'
