@@ -8,7 +8,7 @@ arch=('x86_64')
 url="https://github.com/johnpetersa19/mainline_arch"
 license=('GPL3')
 
-depends=('gtk4' 'libadwaita' 'vte4' 'json-glib' 'libgee' 'aria2' 'python')
+depends=('gtk4' 'libadwaita' 'vte3' 'json-glib' 'libgee' 'aria2' 'libsoup3' 'libx11')
 makedepends=('meson' 'ninja' 'vala')
 
 conflicts=('mainline')
@@ -18,8 +18,6 @@ sha256sums=('ba838194e99e75d6ac05fd62a1632712ee548bba6607b71ebd20fd1d4429f4fa')
 
 build() {
   cd "${srcdir}/mainline_arch-${pkgver}"
-
-  python write_meson.py
 
   meson setup build --prefix=/usr --buildtype=release
   meson compile -C build
