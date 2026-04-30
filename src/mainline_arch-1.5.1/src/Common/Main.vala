@@ -209,7 +209,6 @@ public class Main : GLib.Object {
 	public int    term_x               = DEFAULT_TERM_X;
 	public int    term_y               = DEFAULT_TERM_Y;
 	public double term_font_scale      = DEFAULT_TERM_FONT_SCALE;
-	public int    view_mode            = 0; // 0 = List, 1 = Grid/Large
 
 	// commandline config overrides
 	public bool? opt_hide_invalid    = null;
@@ -337,7 +336,6 @@ public class Main : GLib.Object {
 		config.set_int_member(     "term_x",                  term_x                  );
 		config.set_int_member(     "term_y",                  term_y                  );
 		config.set_double_member(  "term_font_scale",         term_font_scale         );
-		config.set_int_member(     "view_mode",               view_mode               );
 
 		var json = new Json.Generator();
 		json.pretty = true;
@@ -408,7 +406,6 @@ public class Main : GLib.Object {
 		term_x                  = (int) config.get_int_member_with_default(     "term_x",                  DEFAULT_TERM_X                  );
 		term_y                  = (int) config.get_int_member_with_default(     "term_y",                  DEFAULT_TERM_Y                  );
 		term_font_scale         =       config.get_double_member_with_default(  "term_font_scale",         DEFAULT_TERM_FONT_SCALE         );
-		view_mode               = (int) config.get_int_member_with_default(     "view_mode",               0                       );
 #else
 		repo_uri                = json_get_string( config, "repo_uri",                DEFAULT_REPO_URI                );
 		all_proxy               = json_get_string( config, "all_proxy",               DEFAULT_ALL_PROXY               );
@@ -437,7 +434,6 @@ public class Main : GLib.Object {
 		term_x                  = json_get_int(    config, "term_x",                  DEFAULT_TERM_X                  );
 		term_y                  = json_get_int(    config, "term_y",                  DEFAULT_TERM_Y                  );
 		term_font_scale         = json_get_double( config, "term_font_scale",         DEFAULT_TERM_FONT_SCALE         );
-		view_mode               = json_get_int(    config, "view_mode",               0                       );
 #endif
 
 		// update old or otherwise invalid config file

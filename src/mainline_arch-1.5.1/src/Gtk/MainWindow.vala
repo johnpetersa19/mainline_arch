@@ -57,9 +57,6 @@ public class MainWindow : Adw.ApplicationWindow {
 	Gtk.SortListModel sort_model;
 	Gtk.MultiSelection sel_model;
 	Gtk.ColumnView tv;
-	Gtk.FlowBox gv;
-	Gtk.Stack stack_view;
-	Gtk.ToggleButton btn_view_toggle;
 
 	public MainWindow(Adw.Application app) {
 		Object(application: app);
@@ -75,26 +72,6 @@ public class MainWindow : Adw.ApplicationWindow {
 		sort_model = new Gtk.SortListModel(tm, null);
 		sel_model = new Gtk.MultiSelection(sort_model);
 		tv = new Gtk.ColumnView(sel_model);
-		tv.hexpand = true;
-		tv.vexpand = true;
-		tv.valign = Gtk.Align.FILL;
-
-		gv = new Gtk.FlowBox();
-		gv.selection_mode = Gtk.SelectionMode.MULTIPLE;
-		gv.activate_on_single_click = false;
-		gv.valign = Gtk.Align.FILL;
-		gv.halign = Gtk.Align.FILL;
-		gv.hexpand = true;
-		gv.vexpand = true;
-		gv.column_spacing = 12;
-		gv.row_spacing = 12;
-		gv.margin_top = gv.margin_bottom = gv.margin_start = gv.margin_end = 12;
-		gv.selected_children_changed.connect(on_gv_selection_changed);
-		gv.child_activated.connect((child) => { set_button_state(); });
-
-		stack_view = new Gtk.Stack();
-		stack_view.hexpand = true;
-		stack_view.vexpand = true;
 
 		pix_arch        = load_texture("arch-logo.png");
 		pix_mainline    = load_texture("tux.png");
@@ -106,106 +83,16 @@ public class MainWindow : Adw.ApplicationWindow {
 		header_bar = new Adw.HeaderBar();
 		toolbar_view.add_top_bar(header_bar);
 
-		btn_view_toggle = new Gtk.ToggleButton();
-		btn_view_toggle.icon_name = "view-list-symbolic";
-		btn_view_toggle.tooltip_text = _("Switch View");
-		btn_view_toggle.active = (App.view_mode == 1);
-		header_bar.pack_end(btn_view_toggle);
-		btn_view_toggle.toggled.connect(on_view_toggled);
-
 		toast_overlay = new Adw.ToastOverlay();
 		toolbar_view.set_content(toast_overlay);
 
 		vbox_main = new Box(Orientation.VERTICAL, 0);
-		vbox_main.hexpand = true;
-		vbox_main.vexpand = true;
 		vbox_main.margin_top = vbox_main.margin_bottom = vbox_main.margin_start = vbox_main.margin_end = SPACING;
-		vbox_main.valign = Gtk.Align.FILL;
-		vbox_main.halign = Gtk.Align.FILL;
 		toast_overlay.set_child(vbox_main);
 
-		init_styles();
 		init_ui();
 		update_cache();
 	}
-
-	void init_styles() {
-		var provider = new Gtk.CssProvider();
-		string css = """
-			flowboxchild {
-				border-radius: 12px;
-				padding: 0;
-				margin: 0;
-			}
-			flowboxchild:selected {
-				background-color: transparent;
-				outline: none;
-			}
-			flowboxchild:selected .card {
-				background-color: @accent_bg_color;
-				color: @accent_fg_color;
-				box-shadow: 0 0 0 2px @accent_bg_color;
-			}
-			.card {
-				border-radius: 12px;
-				transition: all 150ms ease-in-out;
-			}
-			flowboxchild:hover .card {
-				background-color: alpha(@accent_color, 0.05);
-			}
-			flowboxchild:selected:hover .card {
-				background-color: @accent_bg_color;
-			}
-			/* Estilo para a Lista */
-			columnview {
-				background-color: transparent;
-			}
-			columnview header, columnview header button {
-				margin-left: 8px;
-				margin-right: 8px;
-				opacity: 0.7;
-				font-weight: bold;
-			}
-			columnview row {
-				padding: 10px 12px;
-				margin: 4px 8px;
-				border-radius: 12px;
-				transition: all 150ms ease-in-out;
-				border: 1px solid transparent;
-			}
-			columnview row:hover {
-				background-color: alpha(@accent_color, 0.08);
-				border: 1px solid alpha(@accent_color, 0.15);
-			}
-			columnview row:selected {
-				background-color: @accent_bg_color;
-				color: @accent_fg_color;
-			}
-			columnview row:selected:hover {
-				background-color: @accent_bg_color;
-			}
-			columnview row Label {
-				margin-left: 8px;
-				margin-right: 8px;
-			}
-			.success {
-				color: @success_color;
-				font-weight: bold;
-			}
-			.accent {
-				color: @accent_color;
-			}
-			.bold {
-				font-weight: bold;
-			}
-		""";
-		provider.load_from_string(css);
-		// Use a custom binding to bypass Vala's deprecation warning for global CSS providers
-		apply_global_styles(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
-	}
-
-	[CCode (cname = "gtk_style_context_add_provider_for_display")]
-	public static extern void apply_global_styles (Gdk.Display display, Gtk.StyleProvider provider, uint priority);
 
 	void init_ui() {
 		init_treeview();
@@ -215,16 +102,12 @@ public class MainWindow : Adw.ApplicationWindow {
 
 	void init_treeview() {
 		hbox_list = new Box(Orientation.HORIZONTAL, SPACING);
-		hbox_list.hexpand = true;
-		hbox_list.vexpand = true;
-		hbox_list.halign = Gtk.Align.FILL;
-		hbox_list.valign = Gtk.Align.FILL;
 		vbox_main.append(hbox_list);
 
 		tv.hexpand = true;
 		tv.vexpand = true;
-		tv.show_row_separators = false;
-		tv.show_column_separators = false;
+		tv.show_row_separators = true;
+		tv.show_column_separators = true;
 
 		tv.activate.connect((pos) => { set_button_state(); });
 
@@ -232,28 +115,9 @@ public class MainWindow : Adw.ApplicationWindow {
 			tv_selection_changed();
 		});
 
-		var sw_list = new ScrolledWindow();
-		sw_list.hexpand = true;
-		sw_list.vexpand = true;
-		sw_list.halign = Gtk.Align.FILL;
-		sw_list.valign = Gtk.Align.FILL;
-		sw_list.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC);
-		sw_list.set_child(tv);
-
-		var sw_grid = new ScrolledWindow();
-		sw_grid.hexpand = true;
-		sw_grid.vexpand = true;
-		sw_grid.halign = Gtk.Align.FILL;
-		sw_grid.valign = Gtk.Align.FILL;
-		sw_grid.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-		sw_grid.set_child(gv);
-
-		stack_view.add_named(sw_list, "list");
-		stack_view.add_named(sw_grid, "large");
-
-		hbox_list.append(stack_view);
-
-		update_view();
+		var scrollwin = new ScrolledWindow();
+		scrollwin.set_child(tv);
+		hbox_list.append(scrollwin);
 
 		// ── Kernel column (icon + version label) ────────────────────────
 		var factory_kernel = new Gtk.SignalListItemFactory();
@@ -262,26 +126,13 @@ public class MainWindow : Adw.ApplicationWindow {
 			var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
 			box.margin_start = SPACING;
 			box.margin_end   = SPACING;
-
-			var overlay = new Gtk.Overlay();
-			overlay.valign = Gtk.Align.CENTER;
-			box.append(overlay);
-			
-			var img_bg = new Gtk.Image.from_icon_name("package-x-generic");
-			img_bg.pixel_size = 32;
-			img_bg.opacity = 0.8;
-			overlay.set_child(img_bg);
-
-			var img_emblem = new Gtk.Image();
-			img_emblem.pixel_size = 16;
-			img_emblem.halign = Gtk.Align.END;
-			img_emblem.valign = Gtk.Align.END;
-			overlay.add_overlay(img_emblem);
-
+			var img = new Gtk.Image();
+			img.pixel_size = 24;
 			var lbl = new Gtk.Label("");
 			lbl.ellipsize = Pango.EllipsizeMode.END;
 			lbl.xalign    = 0;
 			lbl.hexpand   = true;
+			box.append(img);
 			box.append(lbl);
 			li.set_child(box);
 		});
@@ -289,27 +140,25 @@ public class MainWindow : Adw.ApplicationWindow {
 			var li  = (Gtk.ListItem) obj;
 			var k   = (LinuxKernel) li.get_item();
 			var box = (Gtk.Box) li.get_child();
-			var overlay = (Gtk.Overlay) box.get_first_child();
-			var img_emblem = (Gtk.Image) overlay.get_last_child();
-			var lbl = (Gtk.Label) overlay.get_next_sibling();
+			var img = (Gtk.Image) box.get_first_child();
+			var lbl = (Gtk.Label) img.get_next_sibling();
 
 			Gdk.Texture? p = pix_mainline;
 			if (k.is_unstable) p = pix_mainline_rc;
 			if (!k.is_mainline) p = pix_arch;
 
 			if (p != null) {
-				img_emblem.set_from_paintable(p);
+				img.set_from_paintable(p);
 			} else {
 				// Fallback to system icons if custom files are missing
-				if (k.is_mainline) img_emblem.set_from_icon_name("linux-symbolic");
-				else img_emblem.set_from_icon_name("operating-system-symbolic");
+				if (k.is_mainline) img.set_from_icon_name("linux-symbolic");
+				else img.set_from_icon_name("operating-system-symbolic");
 			}
 #if DISPLAY_VERSION_SORT
 			lbl.set_label(k.version_sort);
 #else
 			lbl.set_label(k.version_main);
 #endif
-			lbl.add_css_class("bold");
 			box.set_tooltip_text(k.tooltip_text());
 		});
 
@@ -362,9 +211,9 @@ public class MainWindow : Adw.ApplicationWindow {
 			});
 		});
 		factory_lock.bind.connect((obj) => {
-			var li  = (Gtk.ListItem) obj;
-			var k   = (LinuxKernel) li.get_item();
-			var cb  = (Gtk.CheckButton) li.get_child();
+			var li = (Gtk.ListItem) obj;
+			var k  = (LinuxKernel) li.get_item();
+			var cb = (Gtk.CheckButton) li.get_child();
 			// block signal temporarily so bind doesn't trigger toggled
 			is_binding = true;
 			cb.active = k.is_locked;
@@ -385,26 +234,16 @@ public class MainWindow : Adw.ApplicationWindow {
 			var li  = (Gtk.ListItem) obj;
 			var lbl = new Gtk.Label("");
 			lbl.xalign    = 0;
-			lbl.valign    = Gtk.Align.CENTER;
 			lbl.ellipsize = Pango.EllipsizeMode.END;
 			lbl.margin_start = SPACING;
 			lbl.margin_end   = SPACING;
 			li.set_child(lbl);
 		});
 		factory_status.bind.connect((obj) => {
-			var li = (Gtk.ListItem) obj;
-			var k  = (LinuxKernel) li.get_item();
+			var li  = (Gtk.ListItem) obj;
+			var k   = (LinuxKernel) li.get_item();
 			var lbl = (Gtk.Label) li.get_child();
-			lbl.label = k.status;
-			
-			lbl.remove_css_class("success");
-			lbl.remove_css_class("accent");
-			
-			if (k.is_running) {
-				lbl.add_css_class("success");
-			} else if (k.is_installed) {
-				lbl.add_css_class("accent");
-			}
+			lbl.set_label(k.status);
 			lbl.set_tooltip_text(k.tooltip_text());
 		});
 
@@ -421,7 +260,6 @@ public class MainWindow : Adw.ApplicationWindow {
 			var li = (Gtk.ListItem) obj;
 			var el = new Gtk.EditableLabel("");
 			el.hexpand = true;
-			el.valign  = Gtk.Align.CENTER;
 			el.margin_start = SPACING;
 			el.margin_end   = SPACING;
 			li.set_child(el);
@@ -458,144 +296,6 @@ public class MainWindow : Adw.ApplicationWindow {
 		sort_model.sorter = tv.sorter;
 	}
 
-	void tv_refresh() {
-		tm.remove_all();
-		
-		// Clear FlowBox
-		Gtk.Widget? child;
-		while ((child = gv.get_first_child()) != null) {
-			gv.remove(child);
-		}
-
-		foreach (var k in LinuxKernel.kernel_list) {
-			if (!k.is_installed) {
-				if (k.is_invalid  && App.hide_invalid)  continue;
-				if (k.is_unstable && App.hide_unstable) continue;
-				if (k.flavor != "generic" && App.hide_flavors) continue;
-			}
-			tm.append(k);
-			
-			// Add to FlowBox
-			var card = create_card(k);
-			gv.insert(card, -1);
-		}
-
-		selected_kernels.clear();
-		updating = false;
-		set_infobar();
-		set_button_state();
-	}
-
-	Gtk.Widget create_card(LinuxKernel k) {
-		var card = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-		card.add_css_class("card");
-		card.width_request = 160;
-		card.height_request = 160;
-		card.halign = Gtk.Align.FILL;
-		card.valign = Gtk.Align.FILL;
-		card.hexpand = true;
-		card.vexpand = true;
-		card.set_data<LinuxKernel>("kernel", k);
-
-		var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
-		box.margin_top = box.margin_bottom = box.margin_start = box.margin_end = 8;
-		box.vexpand = true;
-		box.hexpand = true;
-		box.valign = Gtk.Align.CENTER;
-		card.append(box);
-
-		var overlay = new Gtk.Overlay();
-		overlay.halign = Gtk.Align.CENTER;
-		box.append(overlay);
-		
-		var img_bg = new Gtk.Image.from_icon_name("package-x-generic");
-		img_bg.pixel_size = 96;
-		img_bg.opacity = 0.9;
-		overlay.set_child(img_bg);
-
-		var img_emblem = new Gtk.Image();
-		img_emblem.pixel_size = 40;
-		img_emblem.halign = Gtk.Align.END;
-		img_emblem.valign = Gtk.Align.END;
-		img_emblem.margin_bottom = 2;
-		img_emblem.margin_end = 2;
-		overlay.add_overlay(img_emblem);
-		
-		Gdk.Texture? p = pix_mainline;
-		if (k.is_unstable) p = pix_mainline_rc;
-		if (!k.is_mainline) p = pix_arch;
-
-		if (p != null) {
-			img_emblem.set_from_paintable(p);
-		} else {
-			if (k.is_mainline) img_emblem.set_from_icon_name("linux-symbolic");
-			else img_emblem.set_from_icon_name("operating-system-symbolic");
-		}
-
-		var lbl_version = new Gtk.Label(k.version_main);
-		lbl_version.add_css_class("caption");
-		lbl_version.add_css_class("bold");
-		lbl_version.ellipsize = Pango.EllipsizeMode.END;
-		lbl_version.halign = Gtk.Align.CENTER;
-		box.append(lbl_version);
-
-		var lbl_status = new Gtk.Label(k.status);
-		lbl_status.add_css_class("caption");
-		lbl_status.opacity = 0.7;
-		lbl_status.ellipsize = Pango.EllipsizeMode.END;
-		lbl_status.halign = Gtk.Align.CENTER;
-		box.append(lbl_status);
-		
-		card.set_tooltip_text(k.tooltip_text());
-
-		return card;
-	}
-
-	void on_gv_selection_changed() {
-		if (is_binding) return;
-		is_binding = true;
-		
-		// Synchronize FlowBox selection to selected_kernels
-		selected_kernels.clear();
-		gv.selected_foreach((box, child) => {
-			var card = child.get_child() as Gtk.Box;
-			if (card != null) {
-				var k = card.get_data<LinuxKernel>("kernel");
-				if (k != null) selected_kernels.add(k);
-			}
-		});
-
-		// Sync to List Model
-		sel_model.unselect_all();
-		uint n = sort_model.get_n_items();
-		for (uint i = 0; i < n; i++) {
-			var k = sort_model.get_item(i) as LinuxKernel;
-			if (k != null && selected_kernels.contains(k)) {
-				sel_model.select_item(i, false);
-			}
-		}
-		
-		set_button_state();
-		
-		is_binding = false;
-	}
-
-	void on_view_toggled() {
-		App.view_mode = btn_view_toggle.active ? 1 : 0;
-		App.save_app_config();
-		update_view();
-	}
-
-	void update_view() {
-		if (App.view_mode == 1) {
-			stack_view.visible_child_name = "large";
-			btn_view_toggle.icon_name = "view-grid-symbolic";
-		} else {
-			stack_view.visible_child_name = "list";
-			btn_view_toggle.icon_name = "view-list-symbolic";
-		}
-	}
-
 	Gdk.Texture? load_texture(string name) {
 		string[] paths = {
 			INSTALL_PREFIX + "/share/pixmaps/" + BRANDING_SHORTNAME + "/" + name,
@@ -629,9 +329,6 @@ public class MainWindow : Adw.ApplicationWindow {
 	}
 
 	void tv_selection_changed() {
-		if (is_binding) return;
-		is_binding = true;
-
 		selected_kernels.clear();
 		uint n = sel_model.get_n_items();
 		for (uint i = 0; i < n; i++) {
@@ -640,26 +337,25 @@ public class MainWindow : Adw.ApplicationWindow {
 				if (k != null) selected_kernels.add(k);
 			}
 		}
+		set_button_state();
+	}
 
-		// Sync to Grid
-		gv.unselect_all();
-		Gtk.Widget? child = gv.get_first_child();
-		while (child != null) {
-			var flow_child = child as Gtk.FlowBoxChild;
-			if (flow_child != null) {
-				var card = flow_child.get_child() as Gtk.Box;
-				if (card != null) {
-					var k = card.get_data<LinuxKernel>("kernel");
-					if (k != null && selected_kernels.contains(k)) {
-						gv.select_child(flow_child);
-					}
-				}
+	void tv_refresh() {
+		tm.remove_all();
+
+		foreach (var k in LinuxKernel.kernel_list) {
+			if (!k.is_installed) {
+				if (k.is_invalid  && App.hide_invalid)  continue;
+				if (k.is_unstable && App.hide_unstable) continue;
+				if (k.flavor != "generic" && App.hide_flavors) continue;
 			}
-			child = child.get_next_sibling();
+			tm.append(k);
 		}
 
+		selected_kernels.clear();
+		updating = false;
+		set_infobar();
 		set_button_state();
-		is_binding = false;
 	}
 
 	void set_button_state() {
@@ -695,10 +391,8 @@ public class MainWindow : Adw.ApplicationWindow {
 	void init_actions() {
 		Button button;
 
-		var sidebar = new Box(Orientation.VERTICAL, SPACING);
-		sidebar.hexpand = false;
-		sidebar.width_request = 120;
-		hbox_list.append(sidebar);
+		var hbox = new Box(Orientation.VERTICAL, SPACING);
+		hbox_list.append(hbox);
 
 		btn_install = new Button();
 		var bc_install = new Adw.ButtonContent();
@@ -706,7 +400,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		bc_install.icon_name = "system-software-install-symbolic";
 		btn_install.child = bc_install;
 		btn_install.add_css_class("suggested-action");
-		sidebar.append(btn_install);
+		hbox.append(btn_install);
 		btn_install.clicked.connect(() => { do_install(selected_kernels); });
 
 		btn_uninstall = new Button();
@@ -715,12 +409,12 @@ public class MainWindow : Adw.ApplicationWindow {
 		bc_uninstall.icon_name = "user-trash-symbolic";
 		btn_uninstall.child = bc_uninstall;
 		btn_uninstall.add_css_class("destructive-action");
-		sidebar.append(btn_uninstall);
+		hbox.append(btn_uninstall);
 		btn_uninstall.clicked.connect(() => { do_uninstall(selected_kernels); });
 
 		button = new Button.with_label("Repo");
 		button.set_tooltip_text(_("Changelog, build status, etc"));
-		sidebar.append(button);
+		hbox.append(button);
 		button.clicked.connect(() => {
 			string uri = App.repo_uri;
 			if (selected_kernels.size == 1 && selected_kernels[0].is_mainline) uri = selected_kernels[0].page_uri;
@@ -729,24 +423,24 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		btn_uninstall_old = new Button.with_label(_("Uninstall Old"));
 		btn_uninstall_old.set_tooltip_text(_("Uninstall everything except:\n* the highest installed version\n* the currently running kernel\n* any kernels that are locked"));
-		sidebar.append(btn_uninstall_old);
+		hbox.append(btn_uninstall_old);
 		btn_uninstall_old.clicked.connect(uninstall_old);
 
 		btn_reload = new Button.with_label(_("Reload"));
 		btn_reload.set_tooltip_text(_("Delete and reload all cached kernel info\n(the same as \"mainline --delete-cache\")"));
-		sidebar.append(btn_reload);
+		hbox.append(btn_reload);
 		btn_reload.clicked.connect(() => { update_cache(true); });
 
 		button = new Button.with_label(_("Settings"));
-		sidebar.append(button);
+		hbox.append(button);
 		button.clicked.connect(do_settings);
 
 		button = new Button.with_label(_("About"));
-		sidebar.append(button);
+		hbox.append(button);
 		button.clicked.connect(do_about);
 
 		button = new Button.with_label(_("Exit"));
-		sidebar.append(button);
+		hbox.append(button);
 		button.clicked.connect(() => { application.quit(); });
 	}
 
