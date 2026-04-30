@@ -1,48 +1,50 @@
 # Mainline Kernels (Arch Linux)
 A tool for installing kernels from the [Arch Linux Archive](https://archive.archlinux.org/packages/l/linux/) onto Arch-based distributions.
-**Current Version: 1.5.1** (The Arch Linux Edition)
+**Current Version: 1.5.1** (The Arch Linux Edition - Modernized UI)
 
-![Main window screenshot](data/main_window.png)
+![Grid View](data/grid_view.png)
 
-## About
-**mainline** is a tool for Arch Linux users to easily browse, install, and manage kernel versions from the official Arch Linux Archive. This is a fork of the original mainline tool, now modernized with **GTK4** and **Libadwaita**.
+## Overview
+**mainline** is a modernized tool for Arch Linux users to browse, install, and manage kernel versions. This fork has been completely overhauled with **GTK4** and **Libadwaita**, offering a premium, responsive, and intuitive user experience.
 
-Sort by the Lock column to collect all the locked kernels together
-![sort by locked](data/sort_by_locked.png)
+## New Visual Experience
+### 📱 Responsive Grid View
+*   **Modern Cards**: A fresh way to browse kernels using a high-definition grid.
+*   **Emblem Icons**: Each kernel card features a distinctive package icon with a sharp Tux/Arch emblem.
+*   **Quick Info**: Version, release date, and status are clearly visible at a glance with refined typography.
 
-Sort by the Status column to collect all the installed kernels together
-![sort by status](data/sort_by_status.png)
+![List View](data/list_view.png)
 
-Sort by the Notes column to see all kernels with any remarks
-![sort_by_notes](data/sort_by_notes.png)
+### 📋 Polished List View
+*   **Floating Rows**: Modern "card-like" list rows with rounded corners and subtle hover effects.
+*   **Clean Design**: Removed cluttered grid lines for a more sophisticated, readable interface.
+*   **Color-Coded Status**: "Running" kernels are highlighted in vibrant green, while "Installed" ones use accent blue.
 
-## About
-mainline is a fork of [ukuu](https://github.com/teejee2008/ukuu)  
+## ⚙️ Modernized Settings
+The settings window has been redesigned into a clean, modular interface using Adwaita's modern patterns:
 
-## Changes
-* Changed name from "ukuu" to "mainline"
-* Removed all GRUB / bootloader options
-* Removed all donate buttons, links, dialogs
-* Removed all unused & unrelated code
-* Removed all TeeJee lib code
-* Better cache management
-* Rewrote all exec() commands not to use temp files, temp bash scripts, and temp directories
-* Rewrote the desktop notification scripts to be more reliable
-* Reduced dependencies
-* Per-kernel user notes
-* Pinning/locking kernels
-* Support for Arch Linux Archive and pacman integration
-* Customizable external commands for the terminal window and for root access
-* **Version 1.5.0 specific:** Complete sanitization of Ubuntu/Debian legacy code, translations updated for Arch, and robust kernel versioning logic for multi-kernel support.
+| Filters | Notifications |
+| :---: | :---: |
+| ![Filters](data/settings_filters.png) | ![Notifications](data/settings_notifications.png) |
+| **Network** | **External Commands** |
+| ![Network](data/settings_network.png) | ![External](data/settings_external.png) |
+
+## Key Features
+*   **GTK4 & Libadwaita**: Built for the modern Linux desktop with a seamless dark mode.
+*   **Arch Archive Integration**: Direct access to the official Arch Linux Archive.
+*   **Dual View**: Switch instantly between Grid and List views with full selection sync.
+*   **Kernel Pinning**: Lock kernels to prevent accidental uninstallation.
+*   **Safe Operations**: Clean, robust backend logic for kernel management on Arch.
 
 ## Evolution: From v1.4.13 to v1.5.1
-This project has evolved from the original **v1.4.13** (which was focused on Ubuntu/Debian) to the current **v1.5.1** optimized for **Arch Linux**.
+This project has evolved from the original **v1.4.13** (focused on Ubuntu) to the current **v1.5.1** fully optimized for **Arch Linux**.
 
 | Feature | Original (v1.4.13) | v1.5.1 (Arch Edition) |
 | :--- | :--- | :--- |
 | **Platform** | Ubuntu / Debian | **Arch Linux** |
 | **Repository** | Ubuntu Mainline PPA | **Arch Linux Archive** |
 | **Toolkit** | GTK3 / Legacy | **GTK4 + Libadwaita** |
+| **UI Design** | Classic Table | **Modern Grid + Floating List** |
 | **Package Type** | `.deb` | **`.pkg.tar.zst`** |
 | **Management** | `dpkg` / `apt` | **`pacman`** |
 | **Build System** | `Makefile` | **`Meson` + `Ninja`** |
