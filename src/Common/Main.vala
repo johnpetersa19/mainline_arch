@@ -536,8 +536,6 @@ public class Main : GLib.Object {
 		repo_tried = true;
 		if (!repo_up) vprint(_("Can not reach site")+": \""+repo_uri+"\"",1,stderr);
 
-		// Fail open just like original code
-		repo_up = true;
 		return repo_up;
 	}
 

@@ -43,8 +43,8 @@ public class AppGtk : Adw.Application {
 		string path = Path.build_filename(Environment.get_current_dir(), "data", "pixmaps");
 		if (FileUtils.test(path, FileTest.IS_DIR)) icon_theme.add_search_path(path);
 		
-		// Also try the hardcoded path as fallback
-		icon_theme.add_search_path("/home/john/Projects/mainline/data/pixmaps");
+		// The previous search path handles the development case relatively.
+		// In production, the icons will be in the standard system paths.
 	}
 
 	protected override void activate() {

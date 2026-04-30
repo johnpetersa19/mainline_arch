@@ -85,7 +85,7 @@ $ mainline
 ```
 GUI
 ```
-$ mainline-gtk
+$ mainline-arch
 ```
 Note that neither of those commands invoked sudo or pkexec or other su-alike.  
 The app runs as the user and uses pkexec internally just for the pacman command.
@@ -143,7 +143,7 @@ Sorting on the "Notes" column is a way to see all kernels that have any notes to
 
 ## General debugging  
   The `-v` or `-v #` option, or the environment variable `VERBOSE=#`, enables increasing levels of verbosity.  
-  Example: `$ mainline-gtk -v 3` or `$ VERBOSE=3 mainline-gtk`  
+  Example: `$ mainline-arch -v 3` or `$ VERBOSE=3 mainline-arch`  
   The -v option may also be used alone or repeated. The default with no `-v` is the same as `-v 1`.  
   Each additional `-v` is like adding 1. ie: `-v -v -v` is like `-v 4` or `VERBOSE=4`  
   0 = silence all output  

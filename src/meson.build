@@ -42,7 +42,7 @@ executable('mainline',
   install: true
 )
 
-executable('mainline-gtk',
+executable('mainline-arch',
   common_sources + gtk_sources,
   dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, soup_dep, gtk_dep, adw_dep, vte_dep, x11_dep, m_dep],
   install: true
