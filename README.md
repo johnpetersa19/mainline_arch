@@ -198,12 +198,3 @@ $ sudo -i
 	# Check for new kernels every 4 hours, randomize over ~2.8 hours
 	1 */4 * * * root sleep ${RANDOM:0:4} ;VERBOSE=0 ;mainline --install-latest --yes && { mainline --uninstall-old --yes ;for a in /home/*/.Xauthority ;do echo [[ -s $a ]] && DISPLAY=:0.0 XAUTHORITY=$a notify-send -t 0 -a mainline -i mainline "Mainline Kernels" "New kernel installed" ;done ; }
 %EOF
-```
-
-* external terminal app
-
-`sudo pacman -S cool-retro-term`  
-
-![settings](data/settings.jpg)
-
-![cool-retro-term](cool-retro-term.jpg)
