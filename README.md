@@ -1,6 +1,6 @@
 # Mainline Kernels (Arch Linux)
 A tool for installing kernels from the [Arch Linux Archive](https://archive.archlinux.org/packages/l/linux/) onto Arch-based distributions.
-**Current Version: 1.5.0** (The Arch Linux Edition)
+**Current Version: 1.5.1** (The Arch Linux Edition)
 
 ![Main window screenshot](data/main_window.png)
 
@@ -35,10 +35,10 @@ mainline is a fork of [ukuu](https://github.com/teejee2008/ukuu)
 * Customizable external commands for the terminal window and for root access
 * **Version 1.5.0 specific:** Complete sanitization of Ubuntu/Debian legacy code, translations updated for Arch, and robust kernel versioning logic for multi-kernel support.
 
-## Evolution: From v1.4.13 to v1.5.0
-This project has evolved from the original **v1.4.13** (which was focused on Ubuntu/Debian) to the current **v1.5.0** optimized for **Arch Linux**.
+## Evolution: From v1.4.13 to v1.5.1
+This project has evolved from the original **v1.4.13** (which was focused on Ubuntu/Debian) to the current **v1.5.1** optimized for **Arch Linux**.
 
-| Feature | Original (v1.4.13) | v1.5.0 (Arch Edition) |
+| Feature | Original (v1.4.13) | v1.5.1 (Arch Edition) |
 | :--- | :--- | :--- |
 | **Platform** | Ubuntu / Debian | **Arch Linux** |
 | **Repository** | Ubuntu Mainline PPA | **Arch Linux Archive** |

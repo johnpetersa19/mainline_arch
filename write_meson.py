@@ -4,7 +4,7 @@ import os
 base = '/home/john/Projects/mainline'
 
 meson_root = """project('mainline', ['vala', 'c'],
-  version: '1.5.0',
+  version: '1.5.1',
   meson_version: '>= 0.50.0',
 )
 
@@ -21,7 +21,7 @@ c_args = [
   '-DINSTALL_PREFIX="' + prefix + '"',
   '-DBRANDING_SHORTNAME="mainline"',
   '-DBRANDING_LONGNAME="Mainline Kernels (Arch Linux)"',
-  '-DBRANDING_VERSION="1.5.0"',
+  '-DBRANDING_VERSION="1.5.1"',
   '-DBRANDING_COPYRIGHT="2026"',
   '-DBRANDING_AUTHORNAME="Mainline Project Contributors"',
   '-DBRANDING_AUTHOREMAIL="johnppetersa@gmail.com"',
