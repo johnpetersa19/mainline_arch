@@ -27,11 +27,10 @@ public Main App;
 public class AppGtk : Adw.Application {
 
 	public AppGtk() {
-		ApplicationFlags flags = ApplicationFlags.DEFAULT_FLAGS;
+		ApplicationFlags flags = ApplicationFlags.DEFAULT_FLAGS | ApplicationFlags.NON_UNIQUE;
 		string? id = "org.bkw777.mainline";
 		if (Posix.getuid() == 0) {
 			id = null;
-			flags |= ApplicationFlags.NON_UNIQUE;
 		}
 		Object(application_id: id, flags: flags);
 	}
@@ -54,13 +53,6 @@ public class AppGtk : Adw.Application {
 	}
 
 	public static int main(string[] argv) {
-		Gdk.set_allowed_backends("wayland,x11,*");
-		App = new Main();
-		App.gui_mode = true;
-		parse_arguments(argv);
-		vprint(string.joinv(" ",argv),3);
-		App.init2();
-
 		// When running as root (via pkexec/sudo), the D-Bus session socket
 		// belongs to the original user and is not accessible to the elevated
 		// process, causing GLib to emit "Error writing credentials to socket"
@@ -71,6 +63,13 @@ public class AppGtk : Adw.Application {
 			GLib.Environment.unset_variable("DBUS_SYSTEM_BUS_ADDRESS");
 			GLib.Environment.set_variable("GSETTINGS_BACKEND", "memory", true);
 		}
+
+		Gdk.set_allowed_backends("wayland,x11,*");
+		App = new Main();
+		App.gui_mode = true;
+		parse_arguments(argv);
+		vprint(string.joinv(" ",argv),3);
+		App.init2();
 
 		return new AppGtk().run(argv);
 	}

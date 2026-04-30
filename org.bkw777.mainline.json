@@ -9,6 +9,8 @@
         "--share=ipc",
         "--socket=fallback-x11",
         "--socket=wayland",
+        "--socket=session-bus",
+        "--socket=system-bus",
         "--device=dri",
         "--filesystem=host",
         "--filesystem=xdg-config/fontconfig:ro",
