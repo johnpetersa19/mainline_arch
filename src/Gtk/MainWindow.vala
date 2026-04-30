@@ -80,17 +80,22 @@ public class MainWindow : Adw.ApplicationWindow {
 		tv.valign = Gtk.Align.FILL;
 
 		gv = new Gtk.FlowBox();
-		gv.selection_mode = Gtk.SelectionMode.MULTIPLE;
-		gv.activate_on_single_click = false;
+		gv.set_selection_mode(Gtk.SelectionMode.SINGLE);
+		gv.activate_on_single_click = true;
+		gv.column_spacing = 4;
+		gv.row_spacing = 4;
 		gv.valign = Gtk.Align.FILL;
 		gv.halign = Gtk.Align.FILL;
 		gv.hexpand = true;
 		gv.vexpand = true;
-		gv.column_spacing = 12;
-		gv.row_spacing = 12;
-		gv.margin_top = gv.margin_bottom = gv.margin_start = gv.margin_end = 12;
+		gv.max_children_per_line = 20;
 		gv.selected_children_changed.connect(on_gv_selection_changed);
-		gv.child_activated.connect((child) => { set_button_state(); });
+		gv.margin_top = gv.margin_bottom = gv.margin_start = gv.margin_end = 6;
+		gv.selected_children_changed.connect(on_gv_selection_changed);
+		gv.child_activated.connect((child) => { 
+			gv.select_child(child);
+			set_button_state(); 
+		});
 
 		stack_view = new Gtk.Stack();
 		stack_view.hexpand = true;
@@ -197,6 +202,13 @@ public class MainWindow : Adw.ApplicationWindow {
 			}
 			.bold {
 				font-weight: bold;
+			}
+			.version-text {
+				font-size: 15px;
+				font-weight: 800;
+			}
+			.sub-text {
+				font-size: 12px;
 			}
 		""";
 		provider.load_from_string(css);
@@ -497,8 +509,8 @@ public class MainWindow : Adw.ApplicationWindow {
 		card.vexpand = true;
 		card.set_data<LinuxKernel>("kernel", k);
 
-		var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
-		box.margin_top = box.margin_bottom = box.margin_start = box.margin_end = 8;
+		var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
+		box.margin_top = box.margin_bottom = box.margin_start = box.margin_end = 6;
 		box.vexpand = true;
 		box.hexpand = true;
 		box.valign = Gtk.Align.CENTER;
@@ -533,14 +545,20 @@ public class MainWindow : Adw.ApplicationWindow {
 		}
 
 		var lbl_version = new Gtk.Label(k.version_main);
-		lbl_version.add_css_class("caption");
-		lbl_version.add_css_class("bold");
+		lbl_version.add_css_class("version-text");
 		lbl_version.ellipsize = Pango.EllipsizeMode.END;
 		lbl_version.halign = Gtk.Align.CENTER;
 		box.append(lbl_version);
 
+		var lbl_date = new Gtk.Label(k.release_date);
+		lbl_date.add_css_class("sub-text");
+		lbl_date.opacity = 0.6;
+		lbl_date.ellipsize = Pango.EllipsizeMode.END;
+		lbl_date.halign = Gtk.Align.CENTER;
+		box.append(lbl_date);
+
 		var lbl_status = new Gtk.Label(k.status);
-		lbl_status.add_css_class("caption");
+		lbl_status.add_css_class("sub-text");
 		lbl_status.opacity = 0.7;
 		lbl_status.ellipsize = Pango.EllipsizeMode.END;
 		lbl_status.halign = Gtk.Align.CENTER;
