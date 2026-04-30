@@ -15,7 +15,8 @@
         "--filesystem=host",
         "--filesystem=xdg-config/fontconfig:ro",
         "--talk-name=org.freedesktop.Flatpak",
-        "--talk-name=org.freedesktop.portal.Desktop"
+        "--talk-name=org.freedesktop.portal.Desktop",
+        "--filesystem=xdg-run/gvfsd"
     ],
     "cleanup": [
         "/include",
