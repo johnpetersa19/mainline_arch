@@ -12,6 +12,7 @@ gtk_dep = dependency('gtk4')
 adw_dep = dependency('libadwaita-1')
 vte_dep = dependency('vte-2.91-gtk4')
 x11_dep = dependency('x11')
+soup_dep = dependency('libsoup-3.0')
 
 common_sources = files([
   'Common/DownloadManager.vala',
@@ -37,12 +38,12 @@ gtk_sources = files([
 
 executable('mainline',
   common_sources + console_sources,
-  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, m_dep],
+  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, soup_dep, m_dep],
   install: true
 )
 
 executable('mainline-gtk',
   common_sources + gtk_sources,
-  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, gtk_dep, adw_dep, vte_dep, x11_dep, m_dep],
+  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, posix_dep, soup_dep, gtk_dep, adw_dep, vte_dep, x11_dep, m_dep],
   install: true
 )

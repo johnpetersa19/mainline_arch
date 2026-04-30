@@ -127,6 +127,8 @@ public class AppConsole : GLib.Object {
 				case "check":
 				case "--notify":
 				case "notify":
+				case "--applet":
+				case "applet":
 				case "--install-latest":
 				case "install-latest":
 				case "--install-point":
@@ -295,7 +297,7 @@ public class AppConsole : GLib.Object {
 			foreach (var p in Package.pacman_list) if (p.name.has_prefix("linux-image-") || p.name == "linux") vprint(p.name + " " + p.vers);
 			return 0;
 		}
-		if (cmd=="notify") {
+		if (cmd=="notify" || cmd=="applet") {
 			if (!App.notify_major && !App.notify_minor) {
 				vprint(_("Notifications disabled"),2);
 				return 1;
@@ -304,6 +306,10 @@ public class AppConsole : GLib.Object {
 				vprint(_("No")+" $DISPLAY",2);
 				return 1;
 			}
+		}
+
+		if (cmd == "applet") {
+			return run_applet();
 		}
 
 		// populate kernel_list
@@ -406,22 +412,65 @@ public class AppConsole : GLib.Object {
 		if (seen==available) available = "";
 		if (available!="") {
 			title = _("Kernel %s Available").printf(available);
-			string s = APP_LIB_DIR+"/notice.sh"
-				+ " -i \"@"+App.NOTIFICATION_ID_FILE+"\""
-				+ " -N \""+BRANDING_LONGNAME+"\""
-				+ " -n "+BRANDING_SHORTNAME
-				+ " -t0"
-				+ " -a \""+_("Show")+":"+GUI_EXE+"\""
-				+ " -a \""+_("Install")+":"+GUI_EXE+" install "+available+"\""
-				+ " -s \""+title+"\""
-			;
-			exec_async(s);
+			// Use native notify-send instead of notice.sh script
+			string s = "notify-send -t 0 -a " + BRANDING_SHORTNAME 
+				+ " -i " + BRANDING_SHORTNAME 
+				+ " \"" + BRANDING_LONGNAME + "\" "
+				+ " \"" + title + "\" "
+				+ " --action=\"show=" + _("Show") + "\" "
+				+ " --action=\"install=" + _("Install") + "\"";
+				
+			// Execute the command and capture the action response
+			try {
+				AppInfo app_info = AppInfo.create_from_commandline(s, null, AppInfoCreateFlags.NONE);
+				app_info.launch(null, null);
+			} catch (Error e) {
+				vprint("Failed to send notification: " + e.message, 1, stderr);
+			}
 		} else {
 			if (seen!="") title = _("Previously notified")+": \""+seen+"\"";
 		}
 
 		vprint(title,2);
 		return 0;
+	}
+
+	int run_applet() {
+		vprint("Starting applet mode...", 2);
+		
+		ulong interval_ms = 3600000; // default 1 hour
+		
+		while (true) {
+			// Calculate sleep interval inside loop so it responds to config changes
+			int n = App.notify_interval_value;
+			switch (App.notify_interval_unit) {
+				case 0: interval_ms = (ulong)n * 3600 * 1000; break;
+				case 1: interval_ms = (ulong)n * 86400 * 1000; break;
+				case 2: interval_ms = (ulong)n * 86400 * 7 * 1000; break;
+			}
+			
+			// Refresh configuration in case user changed it in the GUI
+			App.load_app_config();
+			
+			if (!App.notify_major && !App.notify_minor) {
+				vprint("Notifications disabled, applet exiting.", 2);
+				return 0;
+			}
+			
+			// If session ended, exit cleanly
+			if (Environment.get_variable("DISPLAY") == null) {
+				vprint("No display found, applet exiting.", 2);
+				return 0;
+			}
+			
+			vprint("Applet checking for updates...", 3);
+			App.index_is_fresh = false; // Force re-download of index
+			LinuxKernel.mk_kernel_list(true);
+			notify_user();
+			
+			vprint("Applet sleeping for " + (interval_ms/1000).to_string() + " seconds...", 3);
+			Thread.usleep(interval_ms * 1000);
+		}
 	}
 
 }

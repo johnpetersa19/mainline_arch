@@ -437,6 +437,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		MatchInfo mi;
 		bool is_arch = App.repo_uri.contains("archlinux.org");
 
+		Gee.HashMap<string, LinuxKernel> arch_latest_builds = new Gee.HashMap<string, LinuxKernel>();
+
 		foreach (string l in txt.split("\n")) {
 			if (!rex_pageuri.match(l, 0, out mi)) continue;
 			var u = mi.fetch(1);
@@ -447,22 +449,47 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			k.page_uri = App.repo_uri + u;
 			k.is_mainline = true;
 
+			var d = mi.fetch(3);
+			if (d != null && !d.validate()) d = "";
+			k.release_date = d;
+
 			if (is_arch) {
 				k.pkg_url_list[u] = k.page_uri;
 				k.name = "linux";
 				k.vers = v;
 				k.flavor = "generic";
+				
+				// Deduplicate builds: keep only the latest pkgrel for each base version
+				string base_ver = v;
+				int dash_idx = v.last_index_of("-");
+				if (dash_idx > 0) base_ver = v.substring(0, dash_idx);
+				
+				if (arch_latest_builds.has_key(base_ver)) {
+					var existing = arch_latest_builds[base_ver];
+					if (k.compare_to(existing) > 0) {
+						arch_latest_builds[base_ver] = k;
+					}
+				} else {
+					arch_latest_builds[base_ver] = k;
+				}
+				continue;
 			}
 			
-			var d = mi.fetch(3);
-			if (d != null && !d.validate()) d = "";
-			k.release_date = d;
-
 			if (k.version_major>=THRESHOLD_MAJOR) {
 				k.repo_datetime = 0;
 				k.kernel_list_add(); // the active list
 			}
 			kall.add(k); // a seperate list with nothing removed, used in trim_cache()
+		}
+
+		if (is_arch) {
+			foreach (var k in arch_latest_builds.values) {
+				if (k.version_major>=THRESHOLD_MAJOR) {
+					k.repo_datetime = 0;
+					k.kernel_list_add();
+				}
+				kall.add(k);
+			}
 		}
 
 		if (kall.size > 0 && kernel_list.size == 0) {

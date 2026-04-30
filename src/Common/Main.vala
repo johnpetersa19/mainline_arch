@@ -461,69 +461,10 @@ public class Main : GLib.Object {
 	}
 
 	private void update_startup_script() {
-		vprint("update_startup_script()",3);
-
-		// construct the commandline argument for "sleep"
-		int n = notify_interval_value; string u = "";
-		switch (notify_interval_unit) {
-			case 0: u = "h"; break;
-			case 1: u = "d"; break;
-			case 2: n = n*7; u = "d"; break;
-			case 3: break;
+		// Bash script generation removed. We now use the native applet mode.
+		if (exists(STARTUP_SCRIPT_FILE)) {
+			rm(STARTUP_SCRIPT_FILE);
 		}
-
-		// TODO, ID file should not assume single DISPLAY
-		//       ID and SEEN should probably be in /var/run ?
-		//       Sleep for days or weeks makes no sense,
-		//       should really compare target with current date/time
-		//       or run from cron or at or systemd
-		string s = "#!/bin/bash\n"
-			+ "# "+_("Called from")+" "+STARTUP_DESKTOP_FILE+" "+_("at logon")+".\n"
-			+ "# "+_("This file is over-written and executed again whenever settings are saved in")+" "+BRANDING_SHORTNAME+"-gtk\n"
-			+ "\n"
-			+ "# on reboot or login, forget previous showings and show again once\n"
-			+ "[[ $1 == --autostart ]] && rm -f \""+NOTIFICATION_ID_FILE+"\" \""+MAJOR_SEEN_FILE+"\" \""+MINOR_SEEN_FILE+"\"\n"
-			+ "TMP=${XDG_RUNTIME_DIR:-/tmp}\n"
-			+ "N=${0//\\//_}\n"
-			+ "F=\"${TMP}/${N}.${$}.p\" # our pid file\n"
-			+ "G=\"${TMP}/${N}.+([0-9]).p\" # globbing pattern for other pid files (requires extglob)\n"
-			+ "unset p s; typeset -i p s\n"
-			+ "\n"
-			+ "# on exit, kill our child sleep process and delete our pid file\n"
-			+ "trap '((s)) && kill $s ;rm -f $F' 0\n"
-			+ "\n"
-			+ "# clear previous state (kill previous instance)\n"
-			+ "echo -n \"${DISPLAY} ${$}\" > $F\n"
-			+ "shopt -s extglob\n"
-			+ "for f in $G ;do\n"
-			+ "\t[[ -s $f ]] || continue  # no file found\n"
-			+ "\t[[ $f -ot $F ]] || continue  # file is not older than our current one\n"
-			+ "\tread d p x < $f  # read DISPLAY & PID\n"
-			+ "\t[[ $d == ${DISPLAY} ]] || continue  # not our DISPLAY, not our desktop session\n"
-			+ "\t((p>1)) || continue  # PID not sane\n"
-			+ "\t# if we got this far, then we found a previous, now-obsolete instance of ourself\n"
-			+ "\t# that needs to be killed and replaced with ourself\n"
-			+ "\trm -f $f  # delete the other pid file\n"
-			+ "\tkill $p  # kill the other process\n"
-			+ "done\n"
-			+ "unset N f p d x\n"
-			+ "\n"
-			+ "# run whatever the new state should be\n"
-			+ "# (code below changes depending on notification settings in the app)\n";
-		if (notify_minor || notify_major) {
-			s += "VERBOSE=0\n"
-			+ "while [[ -f $F ]] ;do\n"
-			+ "\t"+CLI_EXE+" notify >&- 2>&-\n"
-			+ "\tsleep %d%s &\n".printf(n,u)
-			+ "\ts=$!\n"
-			+ "\twait $s  # respond to signals during sleep\n"
-			+ "done\n";
-		} else {
-			s += "# " + _("Notifications are disabled") + "\n"
-			+ "exit 0\n";
-		}
-
-		fwrite(STARTUP_SCRIPT_FILE,s);
 		RUN_NOTIFY_SCRIPT = true;
 	}
 
@@ -532,7 +473,12 @@ public class Main : GLib.Object {
 
 		if (notify_minor || notify_major) {
 			string s = "[Desktop Entry]\n"
-				+ "Exec=bash \""+STARTUP_SCRIPT_FILE+"\" --autostart\n"
+				+ "Type=Application\n"
+				+ "Name=" + BRANDING_LONGNAME + " Applet\n"
+				+ "Exec=" + CLI_EXE + " --applet\n"
+				+ "Hidden=false\n"
+				+ "NoDisplay=false\n"
+				+ "X-GNOME-Autostart-enabled=true\n"
 				;
 			fwrite(STARTUP_DESKTOP_FILE,s);
 		} else {
@@ -543,40 +489,54 @@ public class Main : GLib.Object {
 	public void run_notify_script_if_due() {
 		if (!RUN_NOTIFY_SCRIPT) return;
 		RUN_NOTIFY_SCRIPT = false;
-		exec_async_argv({"bash", STARTUP_SCRIPT_FILE});
+		
+		// Instead of running the bash script, run the new applet daemon natively
+		// using pkexec or just directly, actually we just need to restart it
+		// kill existing
+		exec_sync("pkill -f '" + CLI_EXE + " --applet'");
+		
+		// start new instance
+		if (notify_minor || notify_major) {
+			exec_async_argv({CLI_EXE, "--applet"});
+		}
 	}
 
 	public bool try_repo() {
 		vprint("try_repo()",4);
 		if (repo_tried) return repo_up;
 
-		string std_err, std_out;
+		var session = new Soup.Session();
+		session.timeout = connect_timeout_seconds > 0 ? connect_timeout_seconds : 15;
+		if (user_agent.length > 0) {
+			session.user_agent = user_agent;
+		}
 
-		string[] cmd = {
-			"aria2c",
-			"--no-netrc",
-			"--no-conf",
-			"--max-file-not-found=3",
-			"--retry-wait=2",
-			"--dry-run",
-			"--quiet"
-		};
-		if (connect_timeout_seconds>0) cmd += "--connect-timeout="+connect_timeout_seconds.to_string();
-		if (all_proxy.length>0) cmd += "--all-proxy="+all_proxy;
-		if (user_agent.length>0) cmd += "--user-agent="+user_agent;
-		cmd += repo_uri;
-
-		vprint(string.joinv(" ", cmd), 3);
-
-		int status = exec_sync_argv(cmd, out std_out, out std_err);
-
-		if (std_err.length > 0) vprint(std_err,1,stderr);
+		var msg = new Soup.Message("HEAD", repo_uri);
+		var loop = new MainLoop(null, false);
+		
+		vprint("libsoup HEAD " + repo_uri, 3);
+		
+		session.send_async.begin(msg, Priority.DEFAULT, null, (obj, res) => {
+			try {
+				var istream = session.send_async.end(res);
+				repo_up = (msg.status_code == 200);
+				if (!repo_up) {
+					vprint("HTTP Error " + msg.status_code.to_string(), 1, stderr);
+				}
+				istream.close();
+			} catch (Error e) {
+				repo_up = false;
+				vprint(e.message, 1, stderr);
+			}
+			loop.quit();
+		});
+		
+		loop.run();
 
 		repo_tried = true;
-		repo_up = false;
-		if (status == 0) repo_up = true;
-		else vprint(_("Can not reach site")+": \""+repo_uri+"\"",1,stderr);
+		if (!repo_up) vprint(_("Can not reach site")+": \""+repo_uri+"\"",1,stderr);
 
+		// Fail open just like original code
 		repo_up = true;
 		return repo_up;
 	}
