@@ -58,9 +58,18 @@ public class MainWindow : Adw.ApplicationWindow {
 	Gtk.MultiSelection sel_model;
 	Gtk.ColumnView tv;
 	Gtk.Box grid_box;
+	Gtk.Box list_box;
 	Gee.ArrayList<Gtk.FlowBox> flow_boxes;
+	Gee.ArrayList<Gtk.ColumnView> list_views;
+	Gee.ArrayList<GLib.ListStore> list_stores;
 	Gtk.Stack stack_view;
 	Gtk.ToggleButton btn_view_toggle;
+
+	Gtk.SignalListItemFactory factory_kernel;
+	Gtk.SignalListItemFactory factory_date;
+	Gtk.SignalListItemFactory factory_lock;
+	Gtk.SignalListItemFactory factory_status;
+	Gtk.SignalListItemFactory factory_notes;
 
 	public MainWindow(Adw.Application app) {
 		Object(application: app);
@@ -81,6 +90,8 @@ public class MainWindow : Adw.ApplicationWindow {
 		tv.valign = Gtk.Align.FILL;
 
 		flow_boxes = new Gee.ArrayList<Gtk.FlowBox>();
+		list_views = new Gee.ArrayList<Gtk.ColumnView>();
+		list_stores = new Gee.ArrayList<GLib.ListStore>();
 		grid_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
 		grid_box.valign = Gtk.Align.START;
 		grid_box.halign = Gtk.Align.FILL;
@@ -201,6 +212,39 @@ public class MainWindow : Adw.ApplicationWindow {
 			.sub-text {
 				font-size: 12px;
 			}
+			.series-title {
+				font-weight: 800;
+				font-size: 1.2rem;
+				color: @accent_color;
+				margin-top: 16px;
+				margin-bottom: 2px;
+			}
+			.notes-editable {
+				background-color: alpha(@window_fg_color, 0.05);
+				border-radius: 8px;
+				padding: 4px 8px;
+				min-height: 30px;
+				color: alpha(@window_fg_color, 0.8);
+				transition: all 150ms ease-in-out;
+			}
+			.notes-editable:hover {
+				background-color: alpha(@window_fg_color, 0.1);
+				color: @window_fg_color;
+			}
+			columnview row:selected .notes-editable {
+				background-color: alpha(@accent_fg_color, 0.15);
+				color: @accent_fg_color;
+			}
+			.notes-editable entry,
+			.notes-editable entry text {
+				background-color: transparent;
+				background-image: none;
+				border: none;
+				box-shadow: none;
+			}
+			.italic {
+				font-style: italic;
+			}
 		""";
 		provider.load_from_string(css);
 		// Use a custom binding to bypass Vala's deprecation warning for global CSS providers
@@ -224,24 +268,21 @@ public class MainWindow : Adw.ApplicationWindow {
 		hbox_list.valign = Gtk.Align.FILL;
 		vbox_main.append(hbox_list);
 
-		tv.hexpand = true;
-		tv.vexpand = true;
-		tv.show_row_separators = false;
-		tv.show_column_separators = false;
+		list_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+		list_box.hexpand = true;
+		list_box.vexpand = true;
+		list_box.valign = Gtk.Align.START;
+		list_box.margin_top = list_box.margin_bottom = list_box.margin_start = list_box.margin_end = 12;
 
-		tv.activate.connect((pos) => { set_button_state(); });
-
-		sel_model.selection_changed.connect((position, n_items) => {
-			tv_selection_changed();
-		});
+		init_factories();
 
 		var sw_list = new ScrolledWindow();
 		sw_list.hexpand = true;
 		sw_list.vexpand = true;
 		sw_list.halign = Gtk.Align.FILL;
 		sw_list.valign = Gtk.Align.FILL;
-		sw_list.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC);
-		sw_list.set_child(tv);
+		sw_list.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+		sw_list.set_child(list_box);
 
 		var sw_grid = new ScrolledWindow();
 		sw_grid.hexpand = true;
@@ -257,9 +298,11 @@ public class MainWindow : Adw.ApplicationWindow {
 		hbox_list.append(stack_view);
 
 		update_view();
+	}
 
+	void init_factories() {
 		// ── Kernel column (icon + version label) ────────────────────────
-		var factory_kernel = new Gtk.SignalListItemFactory();
+		factory_kernel = new Gtk.SignalListItemFactory();
 		factory_kernel.setup.connect((obj) => {
 			var li = (Gtk.ListItem) obj;
 			var box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, SPACING);
@@ -294,7 +337,7 @@ public class MainWindow : Adw.ApplicationWindow {
 			var box = (Gtk.Box) li.get_child();
 			var overlay = (Gtk.Overlay) box.get_first_child();
 			var img_emblem = (Gtk.Image) overlay.get_last_child();
-			var lbl = (Gtk.Label) overlay.get_next_sibling();
+			var lbl = (Gtk.Label) box.get_last_child();
 
 			Gdk.Texture? p = pix_mainline;
 			if (k.is_unstable) p = pix_mainline_rc;
@@ -303,30 +346,16 @@ public class MainWindow : Adw.ApplicationWindow {
 			if (p != null) {
 				img_emblem.set_from_paintable(p);
 			} else {
-				// Fallback to system icons if custom files are missing
 				if (k.is_mainline) img_emblem.set_from_icon_name("linux-symbolic");
 				else img_emblem.set_from_icon_name("operating-system-symbolic");
 			}
-#if DISPLAY_VERSION_SORT
-			lbl.set_label(k.version_sort);
-#else
 			lbl.set_label(k.version_main);
-#endif
 			lbl.add_css_class("bold");
 			box.set_tooltip_text(k.tooltip_text());
 		});
 
-		var col_kernel = new Gtk.ColumnViewColumn(_("Kernel"), factory_kernel);
-		col_kernel.resizable  = true;
-		col_kernel.expand     = true;
-		col_kernel.fixed_width = 200;
-		col_kernel.sorter = new Gtk.CustomSorter((a, b) => {
-			return ((LinuxKernel) a).compare_to((LinuxKernel) b);
-		});
-		tv.append_column(col_kernel);
-
 		// ── Date column ──────────────────────────────────────────────────
-		var factory_date = new Gtk.SignalListItemFactory();
+		factory_date = new Gtk.SignalListItemFactory();
 		factory_date.setup.connect((obj) => {
 			var li  = (Gtk.ListItem) obj;
 			var lbl = new Gtk.Label("");
@@ -343,18 +372,13 @@ public class MainWindow : Adw.ApplicationWindow {
 			lbl.set_label(k.release_date);
 		});
 
-		var col_date = new Gtk.ColumnViewColumn(_("Date"), factory_date);
-		col_date.resizable = true;
-		tv.append_column(col_date);
-
 		// ── Lock column (checkbox toggle) ────────────────────────────────
-		var factory_lock = new Gtk.SignalListItemFactory();
+		factory_lock = new Gtk.SignalListItemFactory();
 		factory_lock.setup.connect((obj) => {
 			var li = (Gtk.ListItem) obj;
 			var cb = new Gtk.CheckButton();
 			cb.halign = Gtk.Align.CENTER;
 			li.set_child(cb);
-			// connect once; read current item via closure over li
 			cb.notify["active"].connect(() => {
 				if (is_binding) return;
 				var k = li.get_item() as LinuxKernel;
@@ -368,22 +392,13 @@ public class MainWindow : Adw.ApplicationWindow {
 			var li  = (Gtk.ListItem) obj;
 			var k   = (LinuxKernel) li.get_item();
 			var cb  = (Gtk.CheckButton) li.get_child();
-			// block signal temporarily so bind doesn't trigger toggled
 			is_binding = true;
 			cb.active = k.is_locked;
 			is_binding = false;
 		});
 
-		var col_lock = new Gtk.ColumnViewColumn(_("Lock"), factory_lock);
-		col_lock.sorter = new Gtk.CustomSorter((a, b) => {
-			int ia = ((LinuxKernel) a).is_locked ? 1 : 0;
-			int ib = ((LinuxKernel) b).is_locked ? 1 : 0;
-			return ia - ib;
-		});
-		tv.append_column(col_lock);
-
 		// ── Status column ────────────────────────────────────────────────
-		var factory_status = new Gtk.SignalListItemFactory();
+		factory_status = new Gtk.SignalListItemFactory();
 		factory_status.setup.connect((obj) => {
 			var li  = (Gtk.ListItem) obj;
 			var lbl = new Gtk.Label("");
@@ -399,43 +414,29 @@ public class MainWindow : Adw.ApplicationWindow {
 			var k  = (LinuxKernel) li.get_item();
 			var lbl = (Gtk.Label) li.get_child();
 			lbl.label = k.status;
-			
 			lbl.remove_css_class("success");
 			lbl.remove_css_class("accent");
-			
-			if (k.is_running) {
-				lbl.add_css_class("success");
-			} else if (k.is_installed) {
-				lbl.add_css_class("accent");
-			}
-			lbl.set_tooltip_text(k.tooltip_text());
+			if (k.is_running) lbl.add_css_class("success");
+			else if (k.is_installed) lbl.add_css_class("accent");
 		});
-
-		var col_status = new Gtk.ColumnViewColumn(_("Status"), factory_status);
-		col_status.resizable = true;
-		col_status.sorter = new Gtk.CustomSorter((a, b) => {
-			return strcmp(((LinuxKernel) a).status, ((LinuxKernel) b).status);
-		});
-		tv.append_column(col_status);
 
 		// ── Notes column (inline editable) ──────────────────────────────
-		var factory_notes = new Gtk.SignalListItemFactory();
+		factory_notes = new Gtk.SignalListItemFactory();
 		factory_notes.setup.connect((obj) => {
 			var li = (Gtk.ListItem) obj;
 			var el = new Gtk.EditableLabel("");
-			el.hexpand = true;
 			el.valign  = Gtk.Align.CENTER;
 			el.margin_start = SPACING;
-			el.margin_end   = SPACING;
+			el.margin_end   = SPACING + 8; // Extra padding to avoid clipping
+			el.add_css_class("notes-editable");
+			el.set_tooltip_text(_("Click to add or edit a note"));
 			li.set_child(el);
 			el.notify["editing"].connect(() => {
 				if (!el.editing) {
 					var k = li.get_item() as LinuxKernel;
 					if (k != null) {
 						var t_new = el.text.strip();
-						if (k.notes.strip() != t_new) {
-							k.set_notes(t_new);
-						}
+						if (k.notes.strip() != t_new) k.set_notes(t_new);
 					}
 				}
 			});
@@ -445,33 +446,54 @@ public class MainWindow : Adw.ApplicationWindow {
 			var k  = (LinuxKernel) li.get_item();
 			var el = (Gtk.EditableLabel) li.get_child();
 			el.text = k.notes;
-			el.set_tooltip_text(k.tooltip_text());
 		});
+	}
+
+	void populate_columns(Gtk.ColumnView view) {
+		var col_kernel = new Gtk.ColumnViewColumn(_("Kernel"), factory_kernel);
+		col_kernel.resizable  = true;
+		col_kernel.expand     = true;
+		col_kernel.fixed_width = 200;
+		col_kernel.sorter = new Gtk.CustomSorter((a, b) => {
+			return ((LinuxKernel) a).compare_to((LinuxKernel) b);
+		});
+		view.append_column(col_kernel);
+
+		var col_date = new Gtk.ColumnViewColumn(_("Date"), factory_date);
+		col_date.resizable = true;
+		col_date.fixed_width = 120;
+		view.append_column(col_date);
+
+		var col_lock = new Gtk.ColumnViewColumn(_("Lock"), factory_lock);
+		view.append_column(col_lock);
+
+		var col_status = new Gtk.ColumnViewColumn(_("Status"), factory_status);
+		col_status.resizable = true;
+		col_status.fixed_width = 120;
+		view.append_column(col_status);
 
 		var col_notes = new Gtk.ColumnViewColumn(_("Notes"), factory_notes);
 		col_notes.resizable   = true;
 		col_notes.expand      = true;
 		col_notes.fixed_width = 200;
-		col_notes.sorter = new Gtk.CustomSorter((a, b) => {
-			return strcmp(((LinuxKernel) a).notes, ((LinuxKernel) b).notes);
-		});
-		tv.append_column(col_notes);
-
-		// Wire up the ColumnView's built-in sorter to the SortListModel
-		sort_model.sorter = tv.sorter;
+		view.append_column(col_notes);
 	}
 
 	void tv_refresh() {
 		tm.remove_all();
 		
-		// Clear Grid Box
+		// Clear Containers
 		Gtk.Widget? child;
-		while ((child = grid_box.get_first_child()) != null) {
-			grid_box.remove(child);
-		}
+		while ((child = grid_box.get_first_child()) != null) grid_box.remove(child);
+		while ((child = list_box.get_first_child()) != null) list_box.remove(child);
+		
 		flow_boxes.clear();
+		list_views.clear();
+		list_stores.clear();
 
 		Gtk.FlowBox current_gv = null;
+		Gtk.ColumnView current_tv = null;
+		GLib.ListStore current_store = null;
 		int current_major = -1;
 		int current_minor = -1;
 
@@ -488,16 +510,17 @@ public class MainWindow : Adw.ApplicationWindow {
 				current_major = k.version_major;
 				current_minor = k.version_minor;
 
-				var section_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+				var section_title = _("Series %d.%d").printf(current_major, current_minor);
+
+				// --- Grid Mode Section ---
+				var grid_section = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+				var grid_lbl = new Gtk.Label(section_title);
+				grid_lbl.halign = Gtk.Align.START;
+				grid_lbl.add_css_class("series-title");
+				grid_lbl.margin_start = 8;
 				
-				var header_lbl = new Gtk.Label(_("Series %d.%d").printf(current_major, current_minor));
-				header_lbl.halign = Gtk.Align.START;
-				header_lbl.add_css_class("title-3");
-				header_lbl.margin_start = 8;
-				header_lbl.margin_top = 8;
-				
-				var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
-				sep.margin_bottom = 8;
+				var grid_sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+				grid_sep.margin_bottom = 8;
 				
 				current_gv = new Gtk.FlowBox();
 				current_gv.set_selection_mode(Gtk.SelectionMode.SINGLE);
@@ -515,9 +538,8 @@ public class MainWindow : Adw.ApplicationWindow {
 					var selected_list = box.get_selected_children();
 					if (selected_list != null && selected_list.length() > 0) {
 						is_binding = true;
-						foreach (var other_gv in flow_boxes) {
-							if (other_gv != box) other_gv.unselect_all();
-						}
+						foreach (var other_gv in flow_boxes) if (other_gv != box) other_gv.unselect_all();
+						foreach (var other_tv in list_views) other_tv.get_model().unselect_all();
 						is_binding = false;
 					}
 					on_gv_selection_changed();
@@ -526,19 +548,58 @@ public class MainWindow : Adw.ApplicationWindow {
 					current_gv.select_child(card_child);
 					set_button_state(); 
 				});
-
 				flow_boxes.add(current_gv);
 
-				section_box.append(header_lbl);
-				section_box.append(sep);
-				section_box.append(current_gv);
+				grid_section.append(grid_lbl);
+				grid_section.append(grid_sep);
+				grid_section.append(current_gv);
+				grid_box.append(grid_section);
 
-				grid_box.append(section_box);
+				// --- List Mode Section ---
+				var list_section = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+				var list_lbl = new Gtk.Label(section_title);
+				list_lbl.halign = Gtk.Align.START;
+				list_lbl.add_css_class("series-title");
+				list_lbl.margin_start = 8;
+
+				var list_sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+				list_sep.margin_bottom = 8;
+
+				current_store = new GLib.ListStore(typeof(LinuxKernel));
+				var sort_m = new Gtk.SortListModel(current_store, null);
+				var sel_m = new Gtk.MultiSelection(sort_m);
+				current_tv = new Gtk.ColumnView(sel_m);
+				current_tv.hexpand = true;
+				current_tv.vexpand = false;
+				current_tv.valign = Gtk.Align.START;
+				current_tv.margin_end = 16; // Right margin for the whole table
+				current_tv.add_css_class("background");
+
+				populate_columns(current_tv);
+				sort_m.sorter = current_tv.sorter;
+				
+				sel_m.selection_changed.connect((position, n_items) => {
+					if (is_binding) return;
+					is_binding = true;
+					foreach (var other_gv in flow_boxes) other_gv.unselect_all();
+					foreach (var other_tv in list_views) if (other_tv != current_tv) other_tv.get_model().unselect_all();
+					is_binding = false;
+					tv_selection_changed();
+				});
+
+				list_views.add(current_tv);
+				list_stores.add(current_store);
+
+				list_section.append(list_lbl);
+				list_section.append(list_sep);
+				list_section.append(current_tv);
+				list_box.append(list_section);
 			}
 
-			// Add to FlowBox
+			// Add to Models
 			var card = create_card(k);
 			current_gv.insert(card, -1);
+			current_store.append(k);
 		}
 
 		selected_kernels.clear();
@@ -612,6 +673,17 @@ public class MainWindow : Adw.ApplicationWindow {
 		lbl_status.ellipsize = Pango.EllipsizeMode.END;
 		lbl_status.halign = Gtk.Align.CENTER;
 		box.append(lbl_status);
+
+		if (k.notes != "") {
+			var lbl_notes = new Gtk.Label(k.notes);
+			lbl_notes.add_css_class("sub-text");
+			lbl_notes.add_css_class("italic");
+			lbl_notes.opacity = 0.6;
+			lbl_notes.ellipsize = Pango.EllipsizeMode.END;
+			lbl_notes.halign = Gtk.Align.CENTER;
+			lbl_notes.margin_top = 4;
+			box.append(lbl_notes);
+		}
 		
 		card.set_tooltip_text(k.tooltip_text());
 
@@ -634,18 +706,21 @@ public class MainWindow : Adw.ApplicationWindow {
 			});
 		}
 
-		// Sync to List Model
-		sel_model.unselect_all();
-		uint n = sort_model.get_n_items();
-		for (uint i = 0; i < n; i++) {
-			var k = sort_model.get_item(i) as LinuxKernel;
-			if (k != null && selected_kernels.contains(k)) {
-				sel_model.select_item(i, false);
+		// Sync to List Views
+		foreach (var view in list_views) {
+			var selection = view.get_model() as Gtk.SelectionModel;
+			selection.unselect_all();
+			var model = selection.get_model();
+			uint n = model.get_n_items();
+			for (uint i = 0; i < n; i++) {
+				var k = model.get_item(i) as LinuxKernel;
+				if (k != null && selected_kernels.contains(k)) {
+					selection.select_item(i, false);
+				}
 			}
 		}
 		
 		set_button_state();
-		
 		is_binding = false;
 	}
 
@@ -702,11 +777,14 @@ public class MainWindow : Adw.ApplicationWindow {
 		is_binding = true;
 
 		selected_kernels.clear();
-		uint n = sel_model.get_n_items();
-		for (uint i = 0; i < n; i++) {
-			if (sel_model.is_selected(i)) {
-				var k = sel_model.get_item(i) as LinuxKernel;
-				if (k != null) selected_kernels.add(k);
+		foreach (var view in list_views) {
+			var selection = view.get_model() as Gtk.SelectionModel;
+			uint n = selection.get_n_items();
+			for (uint i = 0; i < n; i++) {
+				if (selection.is_selected(i)) {
+					var k = selection.get_item(i) as LinuxKernel;
+					if (k != null) selected_kernels.add(k);
+				}
 			}
 		}
 
