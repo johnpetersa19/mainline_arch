@@ -210,7 +210,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 			// uri to a kernel page and it's datetime, in the main index.html
 			// Arch:   <a href="linux-4.20.10.arch1-1-x86_64.pkg.tar.xz">linux-4.20.10.arch1-1-x86_64.pkg.tar.xz</a> 15-Feb-2019 19:17 70M
-			rex_pageuri     = new Regex("""href="((?:v|linux-)(.+)(?:/|-x86_64\.pkg\.tar\.(?:xz|zst)))".+[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
+			rex_pageuri     = new Regex("""href="((?:v|linux-)(.+?)(?:/|-x86_64\.pkg\.tar\.(?:xz|zst)))".+?([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
 
 			// date & time for any uri in a per-kernel page
 			rex_datetime    = new Regex(""">[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
@@ -818,8 +818,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		is_unstable = false;
 
 		string t = version.strip();
-		if (t.has_prefix("v")) t = t[1: t.length - 1];
-		if (t.has_suffix("/")) t = t[0: t.length - 1];
+		if (t.has_prefix("v")) t = t.substring(1);
+		if (t.has_suffix("/")) t = t.substring(0, t.length - 1);
 
 		if (t==null || t=="") t = "0";
 		version = t;
@@ -828,22 +828,26 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 		var chunks = version.split_set(".-_+~ ");
 		int i = 0, n = 0;
+		bool in_triplet = true;
 		foreach (string chunk in chunks) {
 			if (chunk.length<1) continue;
-			if (chunk.has_prefix("rc")) { version_rc = int.parse(chunk.substring(2)); continue; }
+			if (chunk.has_prefix("rc")) { version_rc = int.parse(chunk.substring(2)); in_triplet = false; continue; }
 			
 			// Check if the chunk is purely numeric
 			bool is_numeric = true;
 			for (int j = 0; j < chunk.length; j++) if (!(chunk[j] >= '0' && chunk[j] <= '9')) { is_numeric = false; break; }
 
-			if (is_numeric) {
+			if (is_numeric && in_triplet) {
 				n = int.parse(chunk);
 				++i;
 				switch (i) {
 					case 1: version_major = n; continue;
 					case 2: version_minor = n; continue;
 					case 3: version_micro = n; continue;
+					default: in_triplet = false; break;
 				}
+			} else {
+				in_triplet = false;
 			}
 
 			if (i >= 3) { // Already have major.minor.micro

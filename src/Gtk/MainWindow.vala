@@ -505,8 +505,8 @@ public class MainWindow : Adw.ApplicationWindow {
 				current_gv.column_spacing = 4;
 				current_gv.row_spacing = 4;
 				current_gv.valign = Gtk.Align.START;
-				current_gv.halign = Gtk.Align.FILL;
-				current_gv.hexpand = true;
+				current_gv.halign = Gtk.Align.START;
+				current_gv.hexpand = false;
 				current_gv.max_children_per_line = 20;
 				current_gv.margin_top = current_gv.margin_bottom = current_gv.margin_start = current_gv.margin_end = 0;
 				
