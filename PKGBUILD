@@ -28,3 +28,4 @@ package() {
 
   DESTDIR="${pkgdir}" meson install -C build
 }
+sha256sums=('e53c3d41763f0d34e432a10b179cd4f28bbff965c1d94dba6c136d9276616426')
