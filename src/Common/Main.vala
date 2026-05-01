@@ -442,7 +442,7 @@ public class Main : GLib.Object {
 
 		// update old or otherwise invalid config file
 		bool resave = false;
-		if ( repo_uri.length==0 || (repo_uri.contains("archlinux.org") && repo_uri != DEFAULT_REPO_URI) ) { repo_uri = DEFAULT_REPO_URI; resave = true; }
+		if ( repo_uri.length==0 ) { repo_uri = DEFAULT_REPO_URI; resave = true; }
 		if (!repo_uri.has_suffix("/")) { repo_uri += "/"; resave = true; }
 		if (connect_timeout_seconds>600) connect_timeout_seconds = 600; // aria2c max allowed
 		if (resave) save_app_config();

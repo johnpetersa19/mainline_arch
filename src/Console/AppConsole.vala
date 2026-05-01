@@ -161,7 +161,8 @@ public class AppConsole : GLib.Object {
 				case "-v":
 				case "--debug":
 				case "--verbose":
-					if (App.set_verbose(args[i+1])) i++;
+					if (i + 1 < args.length && App.set_verbose(args[i+1])) i++;
+					else App.set_verbose(null);
 					break;
 
 				//case "-y":
@@ -215,7 +216,7 @@ public class AppConsole : GLib.Object {
 					break;
 
 				case "--previous-majors":
-					if (set_previous_majors(args[i+1])) i++;
+					if (i + 1 < args.length && set_previous_majors(args[i+1])) i++;
 					break;
 
 				case "--include-all":
