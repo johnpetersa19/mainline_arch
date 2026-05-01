@@ -66,6 +66,7 @@ public class DownloadTask : GLib.Object {
 					return;
 				}
 				
+				mkdir(item.download_dir);
 				var file = File.new_for_path(item.download_dir + "/" + item.file_name);
 				var ostream = file.replace(null, false, FileCreateFlags.NONE, null);
 				
