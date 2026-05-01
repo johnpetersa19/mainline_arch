@@ -714,8 +714,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 					var k = new LinuxKernel(kversion_base.length > 0 ? kversion_base : kversion);
 					k.name = "linux-" + kversion; // human-readable name derived from file
 					k.vers = kversion;             // full version string (e.g. "6.19.14.arch1-1")
-					k.flavor = "distro";
-					k.is_mainline = false;
+					k.flavor = App.repo_uri.contains("archlinux.org") ? "generic" : "distro";
+					k.is_mainline = App.repo_uri.contains("archlinux.org");
 					k.is_installed = true;
 					k.status = _("Installed (Boot)");
 					k.kernel_list_add();
@@ -1307,15 +1307,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "  else\n";
 		s += "    echo \"Warning: vmlinuz for %s not found\" >&2\n".printf(version);
 		s += "  fi\n";
-		s += "  # Preserve modules directory so pacman doesn't permanently delete it on next update\n";
-		s += "  if [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
-		s += "    if [ ! -d \"/usr/lib/modules/$KREL.mainline\" ]; then\n";
-		s += "      cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\"\n";
-		s += "      # Clean up broken symlinks in the copy to avoid pacman metadata warnings later\n";
-		s += "      [ -L \"/usr/lib/modules/$KREL.mainline/build\" ] && [ ! -e \"/usr/lib/modules/$KREL.mainline/build\" ] && rm \"/usr/lib/modules/$KREL.mainline/build\"\n";
-		s += "      [ -L \"/usr/lib/modules/$KREL.mainline/source\" ] && [ ! -e \"/usr/lib/modules/$KREL.mainline/source\" ] && rm \"/usr/lib/modules/$KREL.mainline/source\"\n";
-		s += "    fi\n";
-		s += "  fi\n";
+		s += "  # Preservation of modules directory via .mainline suffix is removed to follow standard Arch hierarchy.\n";
+		s += "  # Older kernels not tracked by pacman are already safe from deletion during updates.\n";
 		s += "else\n";
 		s += "  echo \"Warning: modules for %s not found, skipping versioning steps\" >&2\n".printf(version);
 		s += "fi\n";
@@ -1325,20 +1318,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	// Shell snippet: Restore module directories that were 'saved' to .mainline suffix.
 	// This ensures the kernel can actually find its drivers at boot time.
 	public static string shell_restore_modules() {
-		string s = "# --- Restore all preserved modules ---\n";
-		s += "for M in /usr/lib/modules/*.mainline; do\n";
-		s += "  [ -d \"$M\" ] || continue\n";
-		s += "  ORIG=\"${M%.mainline}\"\n";
-		s += "  if [ ! -d \"$ORIG\" ] || [ -z \"$(ls -A \"$ORIG\")\" ]; then\n";
-		s += "    echo \"Restoring modules directory: $ORIG\"\n";
-		s += "    [ -d \"$ORIG\" ] && rm -rf \"$ORIG\"\n";
-		s += "    cp -a \"$M\" \"$ORIG\"\n";
-		s += "    # Ensure we don't restore broken symlinks that confuse pacman metadata\n";
-		s += "    [ -L \"$ORIG/build\" ] && [ ! -e \"$ORIG/build\" ] && rm \"$ORIG/build\"\n";
-		s += "    [ -L \"$ORIG/source\" ] && [ ! -e \"$ORIG/source\" ] && rm \"$ORIG/source\"\n";
-		s += "  fi\n";
-		s += "done\n";
-		return s;
+		// Module restoration from .mainline is removed to follow standard Arch hierarchy.
+		return "";
 	}
 
 	// Shell snippet: remove versioned kernel files.
@@ -1354,7 +1335,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		// BUG3 FIX: normalize version for fgrep, same logic as shell_save_kernel_version
 		s += "KVER_NORM=$(echo '%s' | sed 's/\\([0-9]\\)\\.\\(arch\\)/\\1-\\2/')\n".printf(version);
 		s += "for MDIR in $(ls /usr/lib/modules/ | grep -F \"$KVER_NORM\"); do\n";
-		s += "  rm -rf \"/usr/lib/modules/$MDIR\" \"/usr/lib/modules/$MDIR.mainline\" || true\n";
+		s += "  rm -rf \"/usr/lib/modules/$MDIR\" || true\n";
 		s += "done\n";
 		// For systemd-boot, remove the entry file immediately since entries are per-version
 		if (bootloader == "systemd-boot") {
@@ -1493,14 +1474,6 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				script += "# Ensure kernel %s is versioned and preserved\n".printf(k.version_main);
 				script += "if [ ! -f '/boot/vmlinuz-linux-%s' ]; then\n".printf(k.version);
 				script += shell_save_kernel_version(k.version);
-				script += "else\n";
-				// Even if the boot files exist, ensure the modules are preserved in .mainline
-				// BUG3 FIX: normalize version for fgrep in else-branch too
-				script += "  KVER_NORM=$(echo '%s' | sed 's/\\([0-9]\\)\\.\\(arch\\)/\\1-\\2/')\n".printf(k.version);
-				script += "  KREL=$(ls /usr/lib/modules/ | grep -F \"$KVER_NORM\" | head -1)\n";
-				script += "  if [ -n \"$KREL\" ] && [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
-				script += "    [ ! -d \"/usr/lib/modules/$KREL.mainline\" ] && cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\" || true\n";
-				script += "  fi\n";
 				script += "fi\n\n";
 			}
 		}
