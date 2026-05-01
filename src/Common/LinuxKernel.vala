@@ -1270,7 +1270,12 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "  fi\n";
 		s += "  # Preserve modules directory so pacman doesn't permanently delete it on next update\n";
 		s += "  if [ -d \"/usr/lib/modules/$KREL\" ]; then\n";
-		s += "    [ ! -d \"/usr/lib/modules/$KREL.mainline\" ] && cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\" || true\n";
+		s += "    if [ ! -d \"/usr/lib/modules/$KREL.mainline\" ]; then\n";
+		s += "      cp -a \"/usr/lib/modules/$KREL\" \"/usr/lib/modules/$KREL.mainline\"\n";
+		s += "      # Clean up broken symlinks in the copy to avoid pacman metadata warnings later\n";
+		s += "      [ -L \"/usr/lib/modules/$KREL.mainline/build\" ] && [ ! -e \"/usr/lib/modules/$KREL.mainline/build\" ] && rm \"/usr/lib/modules/$KREL.mainline/build\"\n";
+		s += "      [ -L \"/usr/lib/modules/$KREL.mainline/source\" ] && [ ! -e \"/usr/lib/modules/$KREL.mainline/source\" ] && rm \"/usr/lib/modules/$KREL.mainline/source\"\n";
+		s += "    fi\n";
 		s += "  fi\n";
 		s += "else\n";
 		s += "  echo \"Warning: modules for %s not found, skipping versioning steps\" >&2\n".printf(version);
@@ -1289,6 +1294,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "    echo \"Restoring modules directory: $ORIG\"\n";
 		s += "    [ -d \"$ORIG\" ] && rm -rf \"$ORIG\"\n";
 		s += "    cp -a \"$M\" \"$ORIG\"\n";
+		s += "    # Ensure we don't restore broken symlinks that confuse pacman metadata\n";
+		s += "    [ -L \"$ORIG/build\" ] && [ ! -e \"$ORIG/build\" ] && rm \"$ORIG/build\"\n";
+		s += "    [ -L \"$ORIG/source\" ] && [ ! -e \"$ORIG/source\" ] && rm \"$ORIG/source\"\n";
 		s += "  fi\n";
 		s += "done\n";
 		return s;
