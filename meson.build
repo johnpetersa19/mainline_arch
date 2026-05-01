@@ -1,5 +1,5 @@
 project('mainline', ['vala', 'c'],
-  version: '1.5.1',
+  version: '1.6.0',
   meson_version: '>= 0.50.0',
 )
 
@@ -16,7 +16,7 @@ c_args = [
   '-DINSTALL_PREFIX="' + prefix + '"',
   '-DBRANDING_SHORTNAME="mainline"',
   '-DBRANDING_LONGNAME="Mainline Kernels (Arch Linux)"',
-  '-DBRANDING_VERSION="1.5.1"',
+  '-DBRANDING_VERSION="1.6.0"',
   '-DBRANDING_COPYRIGHT="2026"',
   '-DBRANDING_AUTHORNAME="Mainline Project Contributors"',
   '-DBRANDING_AUTHOREMAIL="johnppetersa@gmail.com"',

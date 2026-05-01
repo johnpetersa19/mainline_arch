@@ -1,6 +1,6 @@
 # Mainline Kernels (Arch Linux)
 A tool for installing kernels from the [Arch Linux Archive](https://archive.archlinux.org/packages/l/linux/) onto Arch-based distributions.
-**Current Version: 1.5.1** (The Arch Linux Edition - Modernized UI)
+**Current Version: 1.6.0** (The Arch Linux Edition - Stability & Precision)
 
 ![Grid View](data/grid_view.png)
 
@@ -36,10 +36,10 @@ The settings window has been redesigned into a clean, modular interface using Ad
 *   **Kernel Pinning**: Lock kernels to prevent accidental uninstallation.
 *   **Safe Operations**: Clean, robust backend logic for kernel management on Arch.
 
-## Evolution: From v1.4.13 to v1.5.1
-This project has evolved from the original **v1.4.13** (focused on Ubuntu) to the current **v1.5.1** fully optimized for **Arch Linux**.
+## Evolution: From v1.4.13 to v1.6.0
+This project has evolved from the original **v1.4.13** (focused on Ubuntu) to the current **v1.6.0** fully optimized for **Arch Linux**.
 
-| Feature | Original (v1.4.13) | v1.5.1 (Arch Edition) |
+| Feature | Original (v1.4.13) | v1.6.0 (Arch Edition) |
 | :--- | :--- | :--- |
 | **Platform** | Ubuntu / Debian | **Arch Linux** |
 | **Repository** | Ubuntu Mainline PPA | **Arch Linux Archive** |
@@ -58,6 +58,13 @@ This project has evolved from the original **v1.4.13** (focused on Ubuntu) to th
 * Modern UI built with **GTK4** and **Libadwaita**
 * Optionally monitor and send desktop notifications when new kernels become available
 * Kernels are installed using `pacman -U` for full system integration
+
+## 🚀 Recent Improvements (v1.6.0)
+*   **Intelligent Deduplication**: Merges duplicate kernel entries for a cleaner list and safer uninstallation.
+*   **Enhanced Arch Detection**: Improved identification of installed kernels and associated packages, specifically for the Arch Linux filesystem structure.
+*   **Safer Uninstallation**: Better handling of locked kernels and guidance for manual intervention when necessary.
+*   **UI Consistency**: Unified "Series" (Major.Minor) grouping in both Grid and List views with full selection synchronization.
+*   **Bug Fixes**: Resolved multiple crashes, UI clipping issues, and D-Bus permission errors.
 
 ## Build & Install
 To build and install on Arch Linux:
@@ -187,7 +194,6 @@ Sorting on the "Notes" column is a way to see all kernels that have any notes to
 * Replace the commandline parser  
 * Toggles to show/hide the rc or invalid kernels in the main ui instead of going to settings  
 * Right-click menu for more functions for a given kernel, such as reloading the cache just for a single kernel to check for new build status etc, without adding 18 buttons all over the ui.  
-* Properly handle when a kernel has multiple builds like 5.16
 
 # hints  
 * cron job to always have the latest kernel installed.  
