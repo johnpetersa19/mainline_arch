@@ -57,7 +57,8 @@ public class MainWindow : Adw.ApplicationWindow {
 	Gtk.SortListModel sort_model;
 	Gtk.MultiSelection sel_model;
 	Gtk.ColumnView tv;
-	Gtk.FlowBox gv;
+	Gtk.Box grid_box;
+	Gee.ArrayList<Gtk.FlowBox> flow_boxes;
 	Gtk.Stack stack_view;
 	Gtk.ToggleButton btn_view_toggle;
 
@@ -79,23 +80,13 @@ public class MainWindow : Adw.ApplicationWindow {
 		tv.vexpand = true;
 		tv.valign = Gtk.Align.FILL;
 
-		gv = new Gtk.FlowBox();
-		gv.set_selection_mode(Gtk.SelectionMode.SINGLE);
-		gv.activate_on_single_click = true;
-		gv.column_spacing = 4;
-		gv.row_spacing = 4;
-		gv.valign = Gtk.Align.FILL;
-		gv.halign = Gtk.Align.FILL;
-		gv.hexpand = true;
-		gv.vexpand = true;
-		gv.max_children_per_line = 20;
-		gv.selected_children_changed.connect(on_gv_selection_changed);
-		gv.margin_top = gv.margin_bottom = gv.margin_start = gv.margin_end = 6;
-		gv.selected_children_changed.connect(on_gv_selection_changed);
-		gv.child_activated.connect((child) => { 
-			gv.select_child(child);
-			set_button_state(); 
-		});
+		flow_boxes = new Gee.ArrayList<Gtk.FlowBox>();
+		grid_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+		grid_box.valign = Gtk.Align.START;
+		grid_box.halign = Gtk.Align.FILL;
+		grid_box.hexpand = true;
+		grid_box.vexpand = true;
+		grid_box.margin_top = grid_box.margin_bottom = grid_box.margin_start = grid_box.margin_end = 12;
 
 		stack_view = new Gtk.Stack();
 		stack_view.hexpand = true;
@@ -258,7 +249,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		sw_grid.halign = Gtk.Align.FILL;
 		sw_grid.valign = Gtk.Align.FILL;
 		sw_grid.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-		sw_grid.set_child(gv);
+		sw_grid.set_child(grid_box);
 
 		stack_view.add_named(sw_list, "list");
 		stack_view.add_named(sw_grid, "large");
@@ -473,11 +464,16 @@ public class MainWindow : Adw.ApplicationWindow {
 	void tv_refresh() {
 		tm.remove_all();
 		
-		// Clear FlowBox
+		// Clear Grid Box
 		Gtk.Widget? child;
-		while ((child = gv.get_first_child()) != null) {
-			gv.remove(child);
+		while ((child = grid_box.get_first_child()) != null) {
+			grid_box.remove(child);
 		}
+		flow_boxes.clear();
+
+		Gtk.FlowBox current_gv = null;
+		int current_major = -1;
+		int current_minor = -1;
 
 		foreach (var k in LinuxKernel.kernel_list) {
 			if (!k.is_installed) {
@@ -487,9 +483,62 @@ public class MainWindow : Adw.ApplicationWindow {
 			}
 			tm.append(k);
 			
+			// Group by Major.Minor version
+			if (current_gv == null || k.version_major != current_major || k.version_minor != current_minor) {
+				current_major = k.version_major;
+				current_minor = k.version_minor;
+
+				var section_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+				
+				var header_lbl = new Gtk.Label(_("Series %d.%d").printf(current_major, current_minor));
+				header_lbl.halign = Gtk.Align.START;
+				header_lbl.add_css_class("title-3");
+				header_lbl.margin_start = 8;
+				header_lbl.margin_top = 8;
+				
+				var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+				sep.margin_bottom = 8;
+				
+				current_gv = new Gtk.FlowBox();
+				current_gv.set_selection_mode(Gtk.SelectionMode.SINGLE);
+				current_gv.activate_on_single_click = true;
+				current_gv.column_spacing = 4;
+				current_gv.row_spacing = 4;
+				current_gv.valign = Gtk.Align.START;
+				current_gv.halign = Gtk.Align.FILL;
+				current_gv.hexpand = true;
+				current_gv.max_children_per_line = 20;
+				current_gv.margin_top = current_gv.margin_bottom = current_gv.margin_start = current_gv.margin_end = 0;
+				
+				current_gv.selected_children_changed.connect((box) => {
+					if (is_binding) return;
+					var selected_list = box.get_selected_children();
+					if (selected_list != null && selected_list.length() > 0) {
+						is_binding = true;
+						foreach (var other_gv in flow_boxes) {
+							if (other_gv != box) other_gv.unselect_all();
+						}
+						is_binding = false;
+					}
+					on_gv_selection_changed();
+				});
+				current_gv.child_activated.connect((card_child) => { 
+					current_gv.select_child(card_child);
+					set_button_state(); 
+				});
+
+				flow_boxes.add(current_gv);
+
+				section_box.append(header_lbl);
+				section_box.append(sep);
+				section_box.append(current_gv);
+
+				grid_box.append(section_box);
+			}
+
 			// Add to FlowBox
 			var card = create_card(k);
-			gv.insert(card, -1);
+			current_gv.insert(card, -1);
 		}
 
 		selected_kernels.clear();
@@ -575,13 +624,15 @@ public class MainWindow : Adw.ApplicationWindow {
 		
 		// Synchronize FlowBox selection to selected_kernels
 		selected_kernels.clear();
-		gv.selected_foreach((box, child) => {
-			var card = child.get_child() as Gtk.Box;
-			if (card != null) {
-				var k = card.get_data<LinuxKernel>("kernel");
-				if (k != null) selected_kernels.add(k);
-			}
-		});
+		foreach (var current_gv in flow_boxes) {
+			current_gv.selected_foreach((box, child) => {
+				var card = child.get_child() as Gtk.Box;
+				if (card != null) {
+					var k = card.get_data<LinuxKernel>("kernel");
+					if (k != null) selected_kernels.add(k);
+				}
+			});
+		}
 
 		// Sync to List Model
 		sel_model.unselect_all();
@@ -660,20 +711,22 @@ public class MainWindow : Adw.ApplicationWindow {
 		}
 
 		// Sync to Grid
-		gv.unselect_all();
-		Gtk.Widget? child = gv.get_first_child();
-		while (child != null) {
-			var flow_child = child as Gtk.FlowBoxChild;
-			if (flow_child != null) {
-				var card = flow_child.get_child() as Gtk.Box;
-				if (card != null) {
-					var k = card.get_data<LinuxKernel>("kernel");
-					if (k != null && selected_kernels.contains(k)) {
-						gv.select_child(flow_child);
+		foreach (var current_gv in flow_boxes) {
+			current_gv.unselect_all();
+			Gtk.Widget? child = current_gv.get_first_child();
+			while (child != null) {
+				var flow_child = child as Gtk.FlowBoxChild;
+				if (flow_child != null) {
+					var card = flow_child.get_child() as Gtk.Box;
+					if (card != null) {
+						var k = card.get_data<LinuxKernel>("kernel");
+						if (k != null && selected_kernels.contains(k)) {
+							current_gv.select_child(flow_child);
+						}
 					}
 				}
+				child = child.get_next_sibling();
 			}
-			child = child.get_next_sibling();
 		}
 
 		set_button_state();
