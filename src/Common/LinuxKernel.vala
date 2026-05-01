@@ -102,6 +102,39 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public void kernel_list_add() {
 		vprint("kernel_list_add("+this.version_main+")",4);
 
+		foreach (var k in kernel_list) {
+			if (k.version_main == this.version_main) {
+				vprint("Merging kernel info for " + this.version_main, 4);
+				if (this.is_installed) k.is_installed = true;
+				if (this.is_running) k.is_running = true;
+				if (this.is_locked) k.is_locked = true;
+				if (this.is_invalid) k.is_invalid = true;
+				
+				// Merge package lists
+				if (this.pkg_list.length > 0) {
+					foreach (var p in this.pkg_list) {
+						bool found = false;
+						foreach (var ep in k.pkg_list) {
+							if (ep == p) { found = true; break; }
+						}
+						if (!found) {
+							string[] l = k.pkg_list;
+							l += p;
+							k.pkg_list = l;
+						}
+					}
+				}
+				
+				// Merge package URL lists
+				foreach (var entry in this.pkg_url_list.entries) {
+					k.pkg_url_list[entry.key] = entry.value;
+				}
+
+				k.set_status();
+				return;
+			}
+		}
+
 		REPO_DIRS_VER = repo_dirs_ver();
 		CHECKSUMS_URI = checksums_uri();
 		if (exists(NOTES_FILE)) notes = fread(NOTES_FILE).strip();
@@ -572,7 +605,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				// happen to have any flavors with embedded "-" so far.
 				//
 				var x = p.name.split("-");
-				var k = new LinuxKernel(p.vers,x[x.length-1]);
+				string flv = x[x.length-1];
+				if (App.repo_uri.contains("archlinux.org") && flv == "linux") flv = "generic";
+				var k = new LinuxKernel(p.vers,flv);
 				k.name = p.name;
 				k.vers = p.vers;
 				k.is_mainline = false;
