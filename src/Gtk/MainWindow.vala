@@ -533,7 +533,8 @@ public class MainWindow : Adw.ApplicationWindow {
 				current_gv.max_children_per_line = 20;
 				current_gv.margin_top = current_gv.margin_bottom = current_gv.margin_start = current_gv.margin_end = 0;
 				
-				current_gv.selected_children_changed.connect((box) => {
+				var captured_gv = current_gv;
+				captured_gv.selected_children_changed.connect((box) => {
 					if (is_binding) return;
 					var selected_list = box.get_selected_children();
 					if (selected_list != null && selected_list.length() > 0) {
@@ -544,15 +545,15 @@ public class MainWindow : Adw.ApplicationWindow {
 					}
 					on_gv_selection_changed();
 				});
-				current_gv.child_activated.connect((card_child) => { 
-					current_gv.select_child(card_child);
+				captured_gv.child_activated.connect((card_child) => { 
+					captured_gv.select_child(card_child);
 					set_button_state(); 
 				});
-				flow_boxes.add(current_gv);
+				flow_boxes.add(captured_gv);
 
 				grid_section.append(grid_lbl);
 				grid_section.append(grid_sep);
-				grid_section.append(current_gv);
+				grid_section.append(captured_gv);
 				grid_box.append(grid_section);
 
 				// --- List Mode Section ---
@@ -578,17 +579,18 @@ public class MainWindow : Adw.ApplicationWindow {
 				populate_columns(current_tv);
 				sort_m.sorter = current_tv.sorter;
 				
+				list_views.add(current_tv);
+				list_stores.add(current_store);
+
+				var captured_tv = current_tv;
 				sel_m.selection_changed.connect((position, n_items) => {
 					if (is_binding) return;
 					is_binding = true;
 					foreach (var other_gv in flow_boxes) other_gv.unselect_all();
-					foreach (var other_tv in list_views) if (other_tv != current_tv) other_tv.get_model().unselect_all();
+					foreach (var other_tv in list_views) if (other_tv != captured_tv) other_tv.get_model().unselect_all();
 					is_binding = false;
 					tv_selection_changed();
 				});
-
-				list_views.add(current_tv);
-				list_stores.add(current_store);
 
 				list_section.append(list_lbl);
 				list_section.append(list_sep);
@@ -670,6 +672,10 @@ public class MainWindow : Adw.ApplicationWindow {
 		var lbl_status = new Gtk.Label(k.status);
 		lbl_status.add_css_class("sub-text");
 		lbl_status.opacity = 0.7;
+		if (k.is_running) {
+			lbl_status.add_css_class("success");
+			lbl_status.opacity = 1.0;
+		}
 		lbl_status.ellipsize = Pango.EllipsizeMode.END;
 		lbl_status.halign = Gtk.Align.CENTER;
 		box.append(lbl_status);
@@ -708,7 +714,8 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		// Sync to List Views
 		foreach (var view in list_views) {
-			var selection = view.get_model() as Gtk.SelectionModel;
+			var selection = view.get_model() as Gtk.MultiSelection;
+			if (selection == null) continue;
 			selection.unselect_all();
 			var model = selection.get_model();
 			uint n = model.get_n_items();
@@ -778,7 +785,8 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		selected_kernels.clear();
 		foreach (var view in list_views) {
-			var selection = view.get_model() as Gtk.SelectionModel;
+			var selection = view.get_model() as Gtk.MultiSelection;
+			if (selection == null) continue;
 			uint n = selection.get_n_items();
 			for (uint i = 0; i < n; i++) {
 				if (selection.is_selected(i)) {
