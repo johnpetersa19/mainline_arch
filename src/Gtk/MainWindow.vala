@@ -97,7 +97,6 @@ public class MainWindow : Adw.ApplicationWindow {
 		grid_box.halign = Gtk.Align.FILL;
 		grid_box.hexpand = true;
 		grid_box.vexpand = true;
-		grid_box.margin_top = grid_box.margin_bottom = grid_box.margin_start = grid_box.margin_end = 12;
 
 		stack_view = new Gtk.Stack();
 		stack_view.hexpand = true;
@@ -126,7 +125,6 @@ public class MainWindow : Adw.ApplicationWindow {
 		vbox_main = new Box(Orientation.VERTICAL, 0);
 		vbox_main.hexpand = true;
 		vbox_main.vexpand = true;
-		vbox_main.margin_top = vbox_main.margin_bottom = vbox_main.margin_start = vbox_main.margin_end = SPACING;
 		vbox_main.valign = Gtk.Align.FILL;
 		vbox_main.halign = Gtk.Align.FILL;
 		toast_overlay.set_child(vbox_main);
@@ -175,7 +173,6 @@ public class MainWindow : Adw.ApplicationWindow {
 			}
 			columnview row {
 				padding: 10px 12px;
-				margin: 4px 8px;
 				border-radius: 12px;
 				transition: all 150ms ease-in-out;
 				border: 1px solid transparent;
@@ -192,8 +189,6 @@ public class MainWindow : Adw.ApplicationWindow {
 				background-color: @accent_bg_color;
 			}
 			columnview row Label {
-				margin-left: 8px;
-				margin-right: 8px;
 			}
 			.success {
 				color: @success_color;
@@ -261,18 +256,23 @@ public class MainWindow : Adw.ApplicationWindow {
 	}
 
 	void init_treeview() {
-		hbox_list = new Box(Orientation.HORIZONTAL, SPACING);
-		hbox_list.hexpand = true;
-		hbox_list.vexpand = true;
-		hbox_list.halign = Gtk.Align.FILL;
-		hbox_list.valign = Gtk.Align.FILL;
-		vbox_main.append(hbox_list);
+		var split_view = new Adw.OverlaySplitView();
+		split_view.hexpand = true;
+		split_view.vexpand = true;
+		split_view.sidebar_position = Gtk.PackType.END;
+		split_view.min_sidebar_width = 180; // Reasonable width for a sidebar
+
+		vbox_main.append(split_view);
+		
+		hbox_list = new Box(Orientation.VERTICAL, SPACING);
+		hbox_list.add_css_class("background");
+		split_view.sidebar = hbox_list;
 
 		list_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
 		list_box.hexpand = true;
 		list_box.vexpand = true;
 		list_box.valign = Gtk.Align.START;
-		list_box.margin_top = list_box.margin_bottom = list_box.margin_start = list_box.margin_end = 12;
+		// Removed global margins, let the sections have margins
 
 		init_factories();
 
@@ -295,7 +295,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		stack_view.add_named(sw_list, "list");
 		stack_view.add_named(sw_grid, "large");
 
-		hbox_list.append(stack_view);
+		split_view.content = stack_view;
 
 		update_view();
 	}
@@ -514,10 +514,12 @@ public class MainWindow : Adw.ApplicationWindow {
 
 				// --- Grid Mode Section ---
 				var grid_section = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+				grid_section.margin_start = 16;
+				grid_section.margin_end = 16;
+				
 				var grid_lbl = new Gtk.Label(section_title);
 				grid_lbl.halign = Gtk.Align.START;
 				grid_lbl.add_css_class("series-title");
-				grid_lbl.margin_start = 8;
 				
 				var grid_sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
 				grid_sep.margin_bottom = 8;
@@ -529,7 +531,7 @@ public class MainWindow : Adw.ApplicationWindow {
 				current_gv.row_spacing = 4;
 				current_gv.valign = Gtk.Align.START;
 				current_gv.halign = Gtk.Align.START;
-				current_gv.hexpand = false;
+				current_gv.hexpand = true;
 				current_gv.max_children_per_line = 20;
 				current_gv.margin_top = current_gv.margin_bottom = current_gv.margin_start = current_gv.margin_end = 0;
 				
@@ -558,10 +560,12 @@ public class MainWindow : Adw.ApplicationWindow {
 
 				// --- List Mode Section ---
 				var list_section = new Gtk.Box(Gtk.Orientation.VERTICAL, 6);
+				list_section.margin_start = 16;
+				list_section.margin_end = 16;
+				
 				var list_lbl = new Gtk.Label(section_title);
 				list_lbl.halign = Gtk.Align.START;
 				list_lbl.add_css_class("series-title");
-				list_lbl.margin_start = 8;
 
 				var list_sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
 				list_sep.margin_bottom = 8;
@@ -573,7 +577,6 @@ public class MainWindow : Adw.ApplicationWindow {
 				current_tv.hexpand = true;
 				current_tv.vexpand = false;
 				current_tv.valign = Gtk.Align.START;
-				current_tv.margin_end = 16; // Right margin for the whole table
 				current_tv.add_css_class("background");
 
 				populate_columns(current_tv);
@@ -617,8 +620,6 @@ public class MainWindow : Adw.ApplicationWindow {
 		card.height_request = 160;
 		card.halign = Gtk.Align.FILL;
 		card.valign = Gtk.Align.FILL;
-		card.hexpand = true;
-		card.vexpand = true;
 		card.set_data<LinuxKernel>("kernel", k);
 
 		var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 2);
@@ -853,8 +854,7 @@ public class MainWindow : Adw.ApplicationWindow {
 		Button button;
 
 		var sidebar = new Box(Orientation.VERTICAL, SPACING);
-		sidebar.hexpand = false;
-		sidebar.width_request = 120;
+		sidebar.margin_top = sidebar.margin_bottom = sidebar.margin_start = sidebar.margin_end = 12;
 		hbox_list.append(sidebar);
 
 		btn_install = new Button();

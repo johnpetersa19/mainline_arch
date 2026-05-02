@@ -1493,20 +1493,13 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			script += "\n";
 		}
 
-		// Step 2: Save ALL installed kernels' boot files
-		foreach (var k in kernel_list) {
-			if (k.is_installed) {
-				script += "# Ensure kernel %s is versioned and preserved\n".printf(k.version_main);
-				script += "if [ ! -f '/boot/vmlinuz-linux-%s' ]; then\n".printf(k.version);
-				script += shell_save_kernel_version(k.version);
-				script += "fi\n\n";
-			}
-		}
-
+		// Step 2: Save versioned files ONLY for kernels being installed now
+		// (not all currently-installed — those may be replaced/removed by pacman)
 		foreach (var k in to_install) {
-			script += "# Version newly installed kernel %s\n".printf(k.version_main);
+			script += "# Ensure kernel %s is versioned and preserved\n".printf(k.version_main);
+			script += "if [ ! -f '/boot/vmlinuz-linux-%s' ]; then\n".printf(k.version);
 			script += shell_save_kernel_version(k.version);
-			script += "\n";
+			script += "fi\n\n";
 		}
 
 		// Step 4: Restore modules and update bootloader

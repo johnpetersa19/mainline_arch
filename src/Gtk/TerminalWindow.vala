@@ -12,7 +12,6 @@ public class TerminalWindow : Adw.Window {
 	Vte.Terminal term;
 	Pid child_pid = -1;
 	Gtk.Window? parent_win = null;
-	Gtk.Button btn_close;
 	Gtk.Button btn_cancel;
 	Adw.HeaderBar header_bar;
 
@@ -40,6 +39,11 @@ public class TerminalWindow : Adw.Window {
 		title = BRANDING_LONGNAME;
 
 		this.close_request.connect(() => {
+			if (can_close) {
+				App.term_width = get_width();
+				App.term_height = get_height();
+				App.term_font_scale = term.font_scale;
+			}
 			return !can_close;
 		});
 
@@ -59,9 +63,6 @@ public class TerminalWindow : Adw.Window {
 		// Set a nice default font
 		var font_desc = Pango.FontDescription.from_string("Monospace 11");
 		term.set_font(font_desc);
-
-		// Apply Adwaita-like colors
-		apply_colors();
 
 		var scroll_win = new Gtk.ScrolledWindow();
 		scroll_win.set_child(term);
@@ -98,6 +99,7 @@ public class TerminalWindow : Adw.Window {
 		// Bottom bar buttons
 		var bottom_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
 		bottom_bar.margin_start = bottom_bar.margin_end = bottom_bar.margin_top = bottom_bar.margin_bottom = 12;
+		bottom_bar.add_css_class("background");
 		toolbar_view.add_bottom_bar(bottom_bar);
 
 		// btn_cancel (Destructive)
@@ -109,21 +111,13 @@ public class TerminalWindow : Adw.Window {
 		});
 		bottom_bar.append(btn_cancel);
 
-		// btn_close (Suggested)
-		btn_close = new Gtk.Button.with_label(_("Close"));
-		btn_close.add_css_class("suggested-action");
-		btn_close.clicked.connect(()=>{
-			App.term_width = get_width();
-			App.term_height = get_height();
-			App.term_font_scale = term.font_scale;
-			close();
-		});
-		bottom_bar.append(btn_close);
-
-		var spacer = new Gtk.Separator(Gtk.Orientation.HORIZONTAL);
+		var spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
 		spacer.hexpand = true;
-		spacer.set_opacity(0);
 		bottom_bar.append(spacer);
+
+		// Utility Box (Copy + Zoom)
+		var util_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+		bottom_bar.append(util_box);
 
 		// Copy button
 		var btn_copy = new Gtk.Button.from_icon_name("edit-copy-symbolic");
@@ -135,9 +129,8 @@ public class TerminalWindow : Adw.Window {
 			string? buf = term.get_text_range_format(Vte.Format.TEXT, 0, 0, output_end_row, -1, out len);
 			var display = term.get_display();
 			display.get_clipboard().set_text(buf);
-			// AppGtk.alert(this, "Copied to clipboard");
 		});
-		bottom_bar.append(btn_copy);
+		util_box.append(btn_copy);
 
 		// Zoom buttons
 		var zoom_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
@@ -155,25 +148,7 @@ public class TerminalWindow : Adw.Window {
 		btn_plus.clicked.connect(inc_font_scale);
 		zoom_box.append(btn_plus);
 		
-		bottom_bar.append(zoom_box);
-	}
-
-	void apply_colors() {
-		var style_manager = Adw.StyleManager.get_default();
-		bool is_dark = style_manager.dark;
-
-		Gdk.RGBA bg = Gdk.RGBA();
-		Gdk.RGBA fg = Gdk.RGBA();
-
-		if (is_dark) {
-			bg.parse("#1e1e1e");
-			fg.parse("#ffffff");
-		} else {
-			bg.parse("#ffffff");
-			fg.parse("#1e1e1e");
-		}
-
-		term.set_colors(fg, bg, null);
+		util_box.append(zoom_box);
 	}
 
 	public void inc_font_scale() {
@@ -220,10 +195,9 @@ public class TerminalWindow : Adw.Window {
 		can_close = allow;
 		header_bar.show_start_title_buttons = allow;
 		header_bar.show_end_title_buttons = allow;
-		btn_close.sensitive = allow;
-		btn_close.visible = allow;
+		
+		// Just disable the cancel button instead of hiding it to prevent layout shifts
 		btn_cancel.sensitive = !allow;
-		btn_cancel.visible = !allow;
 	}
 
 }
