@@ -67,7 +67,6 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public static Gee.ArrayList<LinuxKernel> kall = new Gee.ArrayList<LinuxKernel>();
 
 	public static Regex rex_pageuri = null;
-	public static Regex rex_pageuri_arch = null;
 	public static Regex rex_datetime = null;
 	public static Regex rex_fileuri = null;
 	public static Regex rex_header = null;
@@ -245,7 +244,6 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			// uri to a kernel page and it's datetime, in the main index.html
 			// Arch:   <a href="linux-4.20.10.arch1-1-x86_64.pkg.tar.xz">linux-4.20.10.arch1-1-x86_64.pkg.tar.xz</a> 15-Feb-2019 19:17 70M
 			rex_pageuri     = new Regex("""href="((?:v|linux-)(.+?)(?:/|-x86_64\.pkg\.tar\.(?:xz|zst)))".+?([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
-			rex_pageuri_arch = new Regex("""href="(linux-([0-9a-zA-Z._-]+)-x86_64\.pkg\.tar\.(?:xz|zst))".+?([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
 
 			// date & time for any uri in a per-kernel page
 			rex_datetime    = new Regex(""">[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
@@ -475,8 +473,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		Gee.HashMap<string, LinuxKernel> arch_latest_builds = new Gee.HashMap<string, LinuxKernel>();
 
 		foreach (string l in txt.split("\n")) {
-			Regex current_rex = is_arch ? rex_pageuri_arch : rex_pageuri;
-			if (!current_rex.match(l, 0, out mi)) continue;
+			if (!rex_pageuri.match(l, 0, out mi)) continue;
 			var u = mi.fetch(1);
 			if (u != null && !u.validate()) continue;
 			var v = mi.fetch(2);
@@ -559,19 +556,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				if (k.name != p.name) continue;
 				
 				// On Arch, package name is just 'linux', so we MUST check version too
-				if (k.name == "linux" || k.name.has_prefix("linux-")) {
-					var tv = k.vers;
-					var pv = p.vers;
-					var tvs = tv.split(".");
-					var pvs = pv.split(".");
-					if (tvs.length > 0 && pvs.length > 0) {
-						var tvse = tvs[tvs.length-1];
-						var pvse = pvs[pvs.length-1];
-						if (tvse.length==12 && uint64.parse(tvse)>0) tv = tv.substring(0,tv.length-13);
-						if (pvse.length==12 && uint64.parse(pvse)>0) pv = pv.substring(0,pv.length-13);
-					}
-					if (tv != pv) continue;
-				}
+				if ((k.name == "linux" || k.name.has_prefix("linux-")) && k.vers != p.vers) continue;
 				
 				found_mainline = true;
 				k.is_installed = true;
@@ -709,11 +694,12 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				bool found = false;
 				foreach (var k in kernel_list) {
 					// Match by full version string, or by base numeric version (e.g. "6.19.14"),
-					// or by vers (the arch package version like "6.19.14.arch1-1")
+					// or by vers (the arch package version like "6.19.14.arch1-1"),
+					// or by version_main containing the kversion string.
 					if (k.vers == kversion
 						|| k.version == kversion
 						|| k.version == kversion_base
-						|| k.version_main == kversion) {
+						|| k.version_main.contains(kversion)) {
 						found = true;
 						k.is_installed = true;
 						k.set_status();
@@ -1301,8 +1287,11 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 	public static string shell_save_kernel_version(string version) {
 		string s = "";
 		s += "# --- Save versioned kernel files for %s ---\n".printf(version);
-		s += "BASE_VER=$(echo '%s' | sed -E 's/^([0-9]+(\\.[0-9]+)*).*/\\1/')\n".printf(version);
-		s += "KREL=$(ls /usr/lib/modules/ | grep \"^${BASE_VER}\" | sort -V | tail -1)\n";
+		// BUG3 FIX: normalize version string for grep: dots after the kernel number
+		// become hyphens in the modules directory name (e.g. 7.0.2.arch1-1 → 7.0.2-arch1-1).
+		// Use fgrep (fixed-string) to avoid treating dots as regex wildcards.
+		s += "KVER_NORM=$(echo '%s' | sed 's/\\([0-9]\\)\\.\\(arch\\)/\\1-\\2/')\n".printf(version);
+		s += "KREL=$(ls /usr/lib/modules/ | grep -F \"$KVER_NORM\" | head -1)\n";
 		s += "if [ -n \"$KREL\" ]; then\n";
 		s += "  echo \"Generating versioned initramfs for $KREL...\"\n";
 		// BUG4 FIX: also generate fallback initramfs (without autodetect)
@@ -1387,8 +1376,10 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		s += "    [ -z \"$KVER\" ] && KVER_FILE='distro' || KVER_FILE=\"$KVER\"\n";
 		s += "    ENTRY=\"$BOOT_DIR/loader/entries/mainline-linux-$KVER_FILE.conf\"\n";
 		s += "    echo \"Creating entry: $ENTRY\"\n";
-		s += "    echo \"title   Mainline Linux $KVER_TITLE\" > \"$ENTRY\"\n";
-		s += "    echo \"linux   /$(basename \\\"$KIMG\\\")\" >> \"$ENTRY\"\n";
+		s += "    cat > \"$ENTRY\" << SDBOOTEOF\n";
+		s += "title   Mainline Linux $KVER_TITLE\n";
+		s += "linux   /$(basename \"$KIMG\")\n";
+		s += "SDBOOTEOF\n";
 		s += "    if [ -n \"$UCODE\" ]; then\n";
 		s += "      echo \"initrd  $UCODE\" >> \"$ENTRY\"\n";
 		s += "    fi\n";
@@ -1476,22 +1467,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		// error checks on the critical pacman step only.
 		string script = "#!/bin/bash\n\n";
 
-		// Step 1: Install
-		foreach (var k in to_install) {
-			string k_pkg_args = "";
-			foreach (var f in k.pkg_url_list.keys) k_pkg_args += " '%s'".printf(k.CACHE_KDIR+"/"+f);
-			script += "# Install kernel %s\n".printf(k.version_main);
-			// BUG2 FIX: explicit error check — if pacman fails, abort immediately
-			// --overwrite '/usr/lib/modules/*': our versioning script intentionally preserves module
-			// directories that belong to previously-installed kernels. When reinstalling one of those
-			// kernels pacman would otherwise abort with "file exists in filesystem" because the files
-			// are on disk but not registered in the package database. --overwrite tells pacman to just
-			// replace them, which is the correct behaviour here.
-			script += "pacman -U --noconfirm --overwrite '/usr/lib/modules/*'%s || { echo 'FATAL: pacman install failed' >&2; exit 1; }\n".printf(k_pkg_args);
-			script += "\n";
-		}
-
-		// Step 2: Save ALL installed kernels' boot files
+		// Step 1: Save ALL installed kernels' boot files before they get replaced.
+		// This is critical for Arch where pacman might delete modules of other kernels.
 		foreach (var k in kernel_list) {
 			if (k.is_installed) {
 				script += "# Ensure kernel %s is versioned and preserved\n".printf(k.version_main);
@@ -1501,8 +1478,18 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			}
 		}
 
+		// Step 2 & 3: Install and Save each newly installed kernel's versioned files
 		foreach (var k in to_install) {
-			script += "# Version newly installed kernel %s\n".printf(k.version_main);
+			string k_pkg_args = "";
+			foreach (var f in k.pkg_url_list.keys) k_pkg_args += " '%s'".printf(k.CACHE_KDIR+"/"+f);
+			script += "# Install and version kernel %s\n".printf(k.version_main);
+			// BUG2 FIX: explicit error check — if pacman fails, abort immediately
+			// --overwrite '/usr/lib/modules/*': our versioning script intentionally preserves module
+			// directories that belong to previously-installed kernels. When reinstalling one of those
+			// kernels pacman would otherwise abort with "file exists in filesystem" because the files
+			// are on disk but not registered in the package database. --overwrite tells pacman to just
+			// replace them, which is the correct behaviour here.
+			script += "pacman -U --noconfirm --overwrite '/usr/lib/modules/*'%s || { echo 'FATAL: pacman install failed' >&2; exit 1; }\n".printf(k_pkg_args);
 			script += shell_save_kernel_version(k.version);
 			script += "\n";
 		}
@@ -1562,7 +1549,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			foreach (var p in k.pkg_list) {
 				// Only uninstall via pacman if the installed version matches exactly
 				script += "if [ \"$(pacman -Q %s 2>/dev/null | cut -d' ' -f2)\" == \"%s\" ]; then\n".printf(p, k.vers);
-				script += "  pacman -R --nodeps --noconfirm %s\n".printf(p);
+				script += "  pacman -R --noconfirm %s\n".printf(p);
 				script += "fi\n";
 			}
 			// Use k.vers (full version string, e.g. "6.19.14.arch1-1") for boot file removal

@@ -14,7 +14,7 @@ makedepends=('meson' 'ninja' 'vala')
 conflicts=('mainline')
 
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/${pkgver}.tar.gz")
-sha256sums=('e53c3d41763f0d34e432a10b179cd4f28bbff965c1d94dba6c136d9276616426')
+sha256sums=('ba838194e99e75d6ac05fd62a1632712ee548bba6607b71ebd20fd1d4429f4fa')
 
 build() {
   cd "${srcdir}/mainline_arch-${pkgver}"

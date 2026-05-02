@@ -1,0 +1,13 @@
+src/Common/DownloadManager.vala
+src/Common/LinuxKernel.vala
+src/Common/Main.vala
+src/Common/Package.vala
+src/Console/AppConsole.vala
+src/Gtk/AppGtk.vala
+src/Gtk/MainWindow.vala
+src/Gtk/SettingsWindow.vala
+src/Gtk/TerminalWindow.vala
+src/lib/AsyncTask.vala
+src/lib/l_exec.vala
+src/lib/l_json.vala
+src/lib/l_misc.vala
