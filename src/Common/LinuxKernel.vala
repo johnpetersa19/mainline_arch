@@ -991,8 +991,9 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			//vprint("tv="+tv+"\tpv="+pv);
 			if (pv != tv) continue;
 			
-			// On Arch, the main package is just 'linux' (no flavor suffix)
-			bool is_arch_main = (p.name == "linux");
+			// On Arch, the main package is just 'linux', but can also be 'linux-headers' etc.
+			bool is_arch = App.repo_uri.contains("archlinux.org");
+			bool is_arch_main = is_arch && (p.name == "linux" || p.name.has_prefix("linux-"));
 			
 			if (!is_arch_main && !p.name.has_suffix("-"+flavor) && p.arch != "all") continue;
 			var l = pkg_list;
