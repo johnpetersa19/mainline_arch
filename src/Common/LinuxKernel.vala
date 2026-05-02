@@ -245,7 +245,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			// uri to a kernel page and it's datetime, in the main index.html
 			// Arch:   <a href="linux-4.20.10.arch1-1-x86_64.pkg.tar.xz">linux-4.20.10.arch1-1-x86_64.pkg.tar.xz</a> 15-Feb-2019 19:17 70M
 			rex_pageuri     = new Regex("""href="((?:v|linux-)(.+?)(?:/|-x86_64\.pkg\.tar\.(?:xz|zst)))".+?([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
-			rex_pageuri_arch = new Regex("""href="(linux-([0-9a-zA-Z._-]+)-x86_64\.pkg\.tar\.(?:xz|zst))".+?([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
+			rex_pageuri_arch = new Regex("""href="(linux-([0-9a-zA-Z._-]+?)-x86_64\.pkg\.tar\.(?:xz|zst))".+?([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
 
 			// date & time for any uri in a per-kernel page
 			rex_datetime    = new Regex(""">[\t ]*([0-9]{2,4}-([0-9]{2}|[A-Z][a-z]{2})-[0-9]{2,4})[\t ]+([0-9]{2}:[0-9]{2})""");
@@ -892,7 +892,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				switch (i) {
 					case 1: version_major = n; continue;
 					case 2: version_minor = n; continue;
-					case 3: version_micro = n; continue;
+					case 3: version_micro = n; in_triplet = false; continue;
 					default: in_triplet = false; break;
 				}
 			} else {
@@ -901,6 +901,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 
 			if (i >= 3) { // Already have major.minor.micro
 				if (chunk.length==12) continue;
+				if (chunk.has_prefix("arch")) continue;
 				// If it's not numeric and we already have the version, it might be extra info
 				if (!is_numeric) is_mainline = false;
 			}
