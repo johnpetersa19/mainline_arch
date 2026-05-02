@@ -54,60 +54,38 @@ public class DownloadTask : GLib.Object {
 		}
 
 		var msg = new Soup.Message("GET", item.source_uri);
-		var loop = new MainLoop(null, false);
-		
-		session.send_async.begin(msg, Priority.DEFAULT, null, (obj, res) => {
-			try {
-				var istream = session.send_async.end(res);
-				
-				if (msg.status_code != 200) {
-					vprint("HTTP Error " + msg.status_code.to_string() + " for " + item.source_uri, 1, stderr);
-					loop.quit();
-					return;
-				}
-				
-				mkdir(item.download_dir);
-				var file = File.new_for_path(item.download_dir + "/" + item.file_name);
-				var ostream = file.replace(null, false, FileCreateFlags.NONE, null);
-				
-				uint8[] buffer = new uint8[32768]; // 32KB chunks
-				int64 current = 0;
-				int64 total = msg.response_headers.get_content_length();
-				item.bytes_total = total > 0 ? total : 0;
-				
-				SourceFunc read_chunk = null;
-				read_chunk = () => {
-					istream.read_async.begin(buffer, Priority.DEFAULT, null, (obj2, res2) => {
-						try {
-							var bytes_read = istream.read_async.end(res2);
-							if (bytes_read > 0) {
-								size_t bytes_written;
-								ostream.write_all(buffer[0:bytes_read], out bytes_written, null);
-								current += bytes_read;
-								item.bytes_received = current;
-								status_line = item.file_name + " " + current.to_string() + "/" + item.bytes_total.to_string();
-								read_chunk();
-							} else {
-								ostream.close();
-								istream.close();
-								loop.quit();
-							}
-						} catch (Error e) {
-							vprint("Download read error: " + e.message, 1, stderr);
-							loop.quit();
-						}
-					});
-					return false;
-				};
-				read_chunk();
-				
-			} catch (Error e) {
-				vprint("Download connection error: " + e.message, 1, stderr);
-				loop.quit();
+
+		try {
+			var istream = session.send(msg, null);
+			if (msg.status_code != 200) {
+				vprint("HTTP Error " + msg.status_code.to_string() + " for " + item.source_uri, 1, stderr);
+				return;
 			}
-		});
-		
-		loop.run();
+			mkdir(item.download_dir);
+			var file = File.new_for_path(item.download_dir + "/" + item.file_name);
+			var ostream = file.replace(null, false, FileCreateFlags.NONE, null);
+			
+			int64 total = msg.response_headers.get_content_length();
+			item.bytes_total = total > 0 ? total : 0;
+			
+			uint8[] buffer = new uint8[65536];
+			ssize_t n;
+			while ((n = istream.read(buffer)) > 0) {
+				size_t bytes_written;
+				ostream.write_all(buffer[0:n], out bytes_written, null);
+				item.bytes_received += n;
+				status_line = item.file_name + " " + item.bytes_received.to_string() + "/" + item.bytes_total.to_string();
+			}
+			ostream.close();
+			istream.close();
+		} catch (Error e) {
+			vprint("Download error: " + e.message, 1, stderr);
+			// limpar arquivo parcial
+			var partial = File.new_for_path(item.download_dir + "/" + item.file_name);
+			if (partial.query_exists()) {
+				try { partial.delete(null); } catch {}
+			}
+		}
 	}
 }
 

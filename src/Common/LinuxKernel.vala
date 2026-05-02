@@ -549,7 +549,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			if (!p.name.has_prefix("linux-image-") && !p.name.has_prefix("linux-") && p.name != "linux") continue;
 			
 			// Exclude common non-kernel packages
-			if (p.name.has_suffix("-headers") || p.name.contains("-firmware") || p.name.has_suffix("-api-headers") || p.name.contains("-meta") || p.name.contains("-docs")) continue;
+			if (p.name.has_suffix("-headers") || p.name.contains("-firmware") || p.name.has_suffix("-api-headers") || p.name.contains("-meta") || p.name.contains("-docs") || p.name.has_suffix("-tools") || p.name.contains("-zfs") || p.name.contains("-nvidia") || p.name.contains("-virtualbox")) continue;
 			
 			vprint("\t"+p.name,3);
 
@@ -905,7 +905,8 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				// If it's not numeric and we already have the version, it might be extra info
 				if (!is_numeric) is_mainline = false;
 			}
-			version_extra += "."+chunk;
+			if (version_extra.length > 0) version_extra += ".";
+			version_extra += chunk;
 		}
 		version_sort = "%d.%d.%d".printf(version_major,version_minor,version_micro);
 		if (version_rc>0) version_sort += ".rc"+version_rc.to_string();
