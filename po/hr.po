@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mainline\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-29 19:19-0300\n"
+"POT-Creation-Date: 2026-05-03 18:34-0300\n"
 "PO-Revision-Date: 2022-09-22 12:13+0200\n"
 "Last-Translator: gogo <trebelnik2@gmail.com>\n"
 "Language-Team: Croatian\n"
@@ -13,285 +13,290 @@ msgstr ""
 "X-Launchpad-Export-Date: 2017-12-23 23:36+0000\n"
 "X-Generator: Poedit 3.0.1\n"
 
-#: src/Common/LinuxKernel.vala:173
+#: src/Common/LinuxKernel.vala:207
 msgid "Distribution"
 msgstr "Distribucija"
 
-#: src/Common/LinuxKernel.vala:188
+#: src/Common/LinuxKernel.vala:222
 msgid "Architecture"
 msgstr "Arhitektura"
 
-#: src/Common/LinuxKernel.vala:269 src/Gtk/MainWindow.vala:515
+#: src/Common/LinuxKernel.vala:316 src/Gtk/MainWindow.vala:1057
 msgid "Running"
 msgstr "Aktivan"
 
-#: src/Common/LinuxKernel.vala:270
+#: src/Common/LinuxKernel.vala:317
 msgid "Installed"
 msgstr "Instalirano"
 
-#: src/Common/LinuxKernel.vala:271
+#: src/Common/LinuxKernel.vala:318
 msgid "Invalid"
 msgstr "Érvénytelen"
 
-#: src/Common/LinuxKernel.vala:272
+#: src/Common/LinuxKernel.vala:319
 #, fuzzy
 msgid "Available"
 msgstr "dostupno"
 
-#: src/Common/LinuxKernel.vala:310
+#. ===== download the main index.html listing all kernels =====
+#. download the main index.html
+#. scrape the main index.html to make the initial kernel_list
+#. ===== download the per-kernel index.html and CHANGES =====
+#. list of kernels - one LinuxKernel object per kernel to update
+#. list of files - one DownloadItem object per individual file to download
+#. add files to download list
+#: src/Common/LinuxKernel.vala:357
 msgid "loading cached pages"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:336
+#. skip some kernels for various reasons
+#. don't try to skip this kernel by looking at is_invalid yet.
+#. is_invalid is cached and might be obsolete
+#. try to load cached info for this kernel
+#. now we can consider is_invalid
+#. an invalid kernel might be installed, but that would have to
+#. be a distro kernel or self-compiled, not a mainline-repo one,
+#. so it's ok to filter out an invalid mainline-repo one here
+#. there may be installed rc kernels even if rc are currently disabled
+#. so don't try to filter out rc kernels yet
+#. we have either not found a cached page,
+#. or found it to be out of date and deleted it,
+#. and have not skipped this kernel due to is_invalid
+#. add index.html to download list
+#: src/Common/LinuxKernel.vala:383
 msgid "queuing download"
 msgstr "preuzimanje u redu čekanja"
 
-#: src/Common/LinuxKernel.vala:349
+#. process the download list
+#. download the indexes
+#: src/Common/LinuxKernel.vala:396
 msgid "downloading new pages"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:363
+#. load the indexes
+#: src/Common/LinuxKernel.vala:410
 msgid "loading new pages"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:378
+#. print summary
+#: src/Common/LinuxKernel.vala:425
 msgid "Currently Running"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:379
+#: src/Common/LinuxKernel.vala:426
 msgid "Oldest Installed"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:380
+#: src/Common/LinuxKernel.vala:427
 msgid "Newest Installed"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:381
+#: src/Common/LinuxKernel.vala:428
 msgid "Newest Available"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:382
+#: src/Common/LinuxKernel.vala:429
 msgid "Available Minor Update"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:383
+#: src/Common/LinuxKernel.vala:430
 msgid "Available Major Update"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:419 src/Gtk/AppGtk.vala:134
+#: src/Common/LinuxKernel.vala:466 src/Gtk/AppGtk.vala:133
 msgid "OK"
 msgstr "OK"
 
-#: src/Common/LinuxKernel.vala:422
+#: src/Common/LinuxKernel.vala:469
 msgid "FAILED"
 msgstr "NIJE USPIO"
 
-#: src/Common/LinuxKernel.vala:469
+#: src/Common/LinuxKernel.vala:545
 #, c-format
 msgid ""
 "All available kernels were filtered out by 'Hide previous major versions' "
 "setting (Major version threshold: %d)"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:658
+#: src/Common/LinuxKernel.vala:745
 #, fuzzy
 msgid "Installed (Boot)"
 msgstr "Instalirano"
 
-#: src/Common/LinuxKernel.vala:950
+#: src/Common/LinuxKernel.vala:1044
 msgid "Packages Available"
 msgstr "Dostupni Paketi"
 
-#: src/Common/LinuxKernel.vala:957
+#: src/Common/LinuxKernel.vala:1051
 msgid "Packages Installed"
 msgstr "Instalirani paketi"
 
-#: src/Common/LinuxKernel.vala:963 src/Console/AppConsole.vala:70
-#: src/Gtk/MainWindow.vala:286
+#: src/Common/LinuxKernel.vala:1057 src/Console/AppConsole.vala:70
+#: src/Gtk/MainWindow.vala:483
 msgid "Notes"
 msgstr "Bilješke"
 
-#: src/Common/LinuxKernel.vala:969
-msgid "Locked"
-msgstr "Zaključan"
+#: src/Common/LinuxKernel.vala:1063
+msgid "Locked (protected from removal)"
+msgstr ""
 
-#: src/Common/LinuxKernel.vala:970
-msgid "removal"
-msgstr "uklanjanje"
-
-#: src/Common/LinuxKernel.vala:970
-msgid "installation"
-msgstr "montaža"
-
-#: src/Common/LinuxKernel.vala:971
-msgid "prevented"
-msgstr "spriječeno"
-
-#: src/Common/LinuxKernel.vala:987 src/Common/LinuxKernel.vala:1124
+#: src/Common/LinuxKernel.vala:1079 src/Common/LinuxKernel.vala:1216
 msgid "not found"
 msgstr "nije pronađeno"
 
-#: src/Common/LinuxKernel.vala:1014
+#. if this kernel's timestamp from the main index is later than the latest in this
+#. kernel's cached page, then delete the cache for this kernel and return false.
+#: src/Common/LinuxKernel.vala:1106
 msgid "needs update"
 msgstr "treba ažuriranje"
 
-#: src/Common/LinuxKernel.vala:1096
+#: src/Common/LinuxKernel.vala:1188
 msgid "Available Kernels"
 msgstr "Dostupni kerneli"
 
-#: src/Common/LinuxKernel.vala:1124 src/Gtk/MainWindow.vala:165
+#: src/Common/LinuxKernel.vala:1216 src/Gtk/MainWindow.vala:461
 msgid "Kernel"
 msgstr "Kernel"
 
-#: src/Common/LinuxKernel.vala:1148
+#: src/Common/LinuxKernel.vala:1240
 msgid "checksums enabled"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1174
+#: src/Common/LinuxKernel.vala:1266
 #, c-format
 msgid "Downloading %s"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1349
+#: src/Common/LinuxKernel.vala:1430
 msgid "Lock/Unlock: no kernels specified"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1351
+#: src/Common/LinuxKernel.vala:1432
 msgid "lock"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1352
+#: src/Common/LinuxKernel.vala:1433
 msgid "unlock"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1357
+#: src/Common/LinuxKernel.vala:1438
 msgid "ok"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1357
+#: src/Common/LinuxKernel.vala:1438
 msgid "failed"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1369
+#: src/Common/LinuxKernel.vala:1450
 msgid "Download: no downloadable kernels specified"
 msgstr "Preuzimanje: nema navedenih kernela koji se mogu preuzeti"
 
-#: src/Common/LinuxKernel.vala:1389
+#: src/Common/LinuxKernel.vala:1470
 #, c-format
 msgid "%s is already installed"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1390 src/Common/LinuxKernel.vala:1480
-#: src/Common/LinuxKernel.vala:1555
+#: src/Common/LinuxKernel.vala:1471 src/Common/LinuxKernel.vala:1550
+#: src/Common/LinuxKernel.vala:1625
 #, c-format
 msgid "%s is locked"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1391
+#: src/Common/LinuxKernel.vala:1472
 #, c-format
 msgid "%s is invalid"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1392
+#: src/Common/LinuxKernel.vala:1473
 #, c-format
 msgid "%s download failed"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1393
+#: src/Common/LinuxKernel.vala:1474
 #, c-format
 msgid "Installing %s"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1398
+#: src/Common/LinuxKernel.vala:1479
 msgid "Install: no installable kernels specified"
 msgstr "Instaliraj: nema navedenih kernela koji se mogu instalirati"
 
-#: src/Common/LinuxKernel.vala:1479 src/Common/LinuxKernel.vala:1547
+#: src/Common/LinuxKernel.vala:1549 src/Common/LinuxKernel.vala:1617
 #, c-format
 msgid "%s is running"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1481
+#: src/Common/LinuxKernel.vala:1551
 #, c-format
 msgid "Uninstalling %s"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1484
+#: src/Common/LinuxKernel.vala:1554
 msgid "found"
 msgstr "pronađen"
 
-#: src/Common/LinuxKernel.vala:1489
+#: src/Common/LinuxKernel.vala:1559
 msgid "Uninstall: no kernels to remove"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1551
+#: src/Common/LinuxKernel.vala:1621
 #, c-format
 msgid "%s is the highest installed version"
 msgstr ""
 
-#: src/Common/LinuxKernel.vala:1563
+#: src/Common/LinuxKernel.vala:1633
 msgid "Could not find running kernel in list"
 msgstr "Nije moguće pronaći pokrenutu kernel na popisu"
 
-#: src/Common/LinuxKernel.vala:1568
+#: src/Common/LinuxKernel.vala:1638
 msgid "No old kernels to uninstall"
 msgstr "Nema starih kernela za deinstaliranje"
 
-#: src/Common/LinuxKernel.vala:1581
+#: src/Common/LinuxKernel.vala:1651
 msgid "No updates"
 msgstr ""
 
+#. Translators: uppercase, or otherwise emphasized, display version of a single character for "yes",
+#. * string may be longer than one character. Examples: "Y" or "[y]"
 #: src/Common/Main.vala:127
 msgid "Y"
 msgstr "D"
 
+#. Translators: lowercase, or otherwise not-emphasized, single keypress user response for "yes",
+#. * Example: "y"
 #: src/Common/Main.vala:130
 msgid "y"
 msgstr "d"
 
+#. Translators: uppercase, or otherwise emphasized, display version of a single character for "no",
+#. * string may be longer than one character. Examples: "N" or "[n]"
 #: src/Common/Main.vala:133
 msgid "N"
 msgstr "N"
 
+#. Translators: lowercase, or otherwise not-emphasized, single keypress user response for "no",
+#. * Example: "n"
 #: src/Common/Main.vala:136
 msgid "n"
 msgstr "n"
 
-#: src/Common/Main.vala:264
+#: src/Common/Main.vala:265
 msgid "main index is fresh"
 msgstr ""
 
-#: src/Common/Main.vala:351
+#: src/Common/Main.vala:353
 msgid "Wrote config file"
 msgstr "Napisao konfiguracijsku datoteku"
 
-#: src/Common/Main.vala:370
+#: src/Common/Main.vala:372
 msgid "No config file"
 msgstr "Nema konfiguracijske datoteke"
 
-#: src/Common/Main.vala:455
+#: src/Common/Main.vala:459
 msgid "Loaded config file"
 msgstr "Učitana konfiguracijska datoteka"
 
-#: src/Common/Main.vala:477
-msgid "Called from"
-msgstr "Pozvano od"
-
-#: src/Common/Main.vala:477
-msgid "at logon"
-msgstr "indításkor"
-
-#: src/Common/Main.vala:478
-msgid ""
-"This file is over-written and executed again whenever settings are saved in"
-msgstr ""
-"Ova se datoteka prepisuje i ponovno izvršava kad god se postavke spremaju u"
-
-#: src/Common/Main.vala:518
-msgid "Notifications are disabled"
-msgstr "Obavijesti su onemogućene"
-
-#: src/Common/Main.vala:574
+#: src/Common/Main.vala:537
 msgid "Can not reach site"
 msgstr "Nije moguće doći do web-mjesta"
 
@@ -305,19 +310,19 @@ msgstr ""
 msgid "install kernel packages from %s"
 msgstr ""
 
-#: src/Console/AppConsole.vala:33 src/Gtk/AppGtk.vala:83
+#: src/Console/AppConsole.vala:33 src/Gtk/AppGtk.vala:82
 msgid "Syntax"
 msgstr "Sintaksa"
 
-#: src/Console/AppConsole.vala:33 src/Gtk/AppGtk.vala:83
+#: src/Console/AppConsole.vala:33 src/Gtk/AppGtk.vala:82
 msgid "command"
 msgstr ""
 
-#: src/Console/AppConsole.vala:33 src/Gtk/AppGtk.vala:83
+#: src/Console/AppConsole.vala:33 src/Gtk/AppGtk.vala:82
 msgid "options"
 msgstr "mogućnosti"
 
-#: src/Console/AppConsole.vala:35 src/Gtk/AppGtk.vala:85
+#: src/Console/AppConsole.vala:35 src/Gtk/AppGtk.vala:84
 msgid "Commands"
 msgstr "Naredbe"
 
@@ -386,11 +391,11 @@ msgid ""
 "Write the given include/exclude & previous-majors options to the config file"
 msgstr ""
 
-#: src/Console/AppConsole.vala:51 src/Gtk/AppGtk.vala:86
+#: src/Console/AppConsole.vala:51 src/Gtk/AppGtk.vala:85
 msgid "This help"
 msgstr "Ova pomoć"
 
-#: src/Console/AppConsole.vala:53 src/Gtk/AppGtk.vala:88
+#: src/Console/AppConsole.vala:53 src/Gtk/AppGtk.vala:87
 msgid "Options"
 msgstr "Mogućnosti"
 
@@ -430,11 +435,13 @@ msgstr ""
 msgid "Short for \"%s\""
 msgstr ""
 
+#. + "  -y|--yes            " + _("Assume Yes for all prompts") + "\n"
+#. + "  -n|--no|--dry-run   " + _("Assume No for all prompts - takes precedence over \"%s\"").printf("--yes") + "\n"
 #: src/Console/AppConsole.vala:66
 msgid "Don't actually install or uninstall"
 msgstr ""
 
-#: src/Console/AppConsole.vala:67 src/Gtk/AppGtk.vala:89
+#: src/Console/AppConsole.vala:67 src/Gtk/AppGtk.vala:88
 msgid "Set verbosity level to #, or increment by 1"
 msgstr ""
 
@@ -467,128 +474,157 @@ msgstr "učinjeno"
 msgid "(press Enter to close)"
 msgstr ""
 
-#: src/Console/AppConsole.vala:235
+#: src/Console/AppConsole.vala:238
 #, c-format
 msgid "Unknown option \"%s\""
 msgstr ""
 
-#: src/Console/AppConsole.vala:250 src/Console/AppConsole.vala:254
-#: src/Console/AppConsole.vala:258 src/Console/AppConsole.vala:262
-#: src/Console/AppConsole.vala:267
+#. transition notices
+#: src/Console/AppConsole.vala:253 src/Console/AppConsole.vala:257
+#: src/Console/AppConsole.vala:261 src/Console/AppConsole.vala:265
+#: src/Console/AppConsole.vala:270
 #, c-format
 msgid "Notice: \"%s\" has been renamed to \"%s\""
 msgstr ""
 
-#: src/Console/AppConsole.vala:271
+#. apply some of the options effects
+#: src/Console/AppConsole.vala:274
 msgid "DRY-RUN"
 msgstr ""
 
-#: src/Console/AppConsole.vala:277
+#: src/Console/AppConsole.vala:280
 #, c-format
 msgid "Deleted %s"
 msgstr ""
 
-#: src/Console/AppConsole.vala:278
+#: src/Console/AppConsole.vala:281
 #, c-format
 msgid "Error deleting %s"
 msgstr ""
 
-#: src/Console/AppConsole.vala:288
+#: src/Console/AppConsole.vala:291
 #, c-format
 msgid "Wrote %s"
 msgstr ""
 
-#: src/Console/AppConsole.vala:294
+#: src/Console/AppConsole.vala:297
 msgid "Installed Kernels"
 msgstr ""
 
-#: src/Console/AppConsole.vala:300
+#: src/Console/AppConsole.vala:303
 msgid "Notifications disabled"
 msgstr "Obavijesti onemogućene"
 
-#: src/Console/AppConsole.vala:304
+#: src/Console/AppConsole.vala:307
 msgid "No"
 msgstr "Nema"
 
-#: src/Console/AppConsole.vala:360
+#: src/Console/AppConsole.vala:367
 msgid "Unknown command"
 msgstr "Nepoznata naredba"
 
-#: src/Console/AppConsole.vala:379
+#: src/Console/AppConsole.vala:386
 msgid "Latest update"
 msgstr "Najnovija nadopuna"
 
-#: src/Console/AppConsole.vala:380
+#: src/Console/AppConsole.vala:387
 msgid "Latest point update"
 msgstr "Najnovija ciljana nadopuna"
 
-#: src/Console/AppConsole.vala:381 src/Console/AppConsole.vala:387
+#: src/Console/AppConsole.vala:388 src/Console/AppConsole.vala:394
 msgid "No updates found"
 msgstr "Nema pronađenih nadopuna"
 
-#: src/Console/AppConsole.vala:396
+#: src/Console/AppConsole.vala:403
 msgid "notify minor releases disabled"
 msgstr ""
 
-#: src/Console/AppConsole.vala:404
+#: src/Console/AppConsole.vala:411
 msgid "notify major releases disabled"
 msgstr "obavijest o glavnim izdanjima onemogućena"
 
-#: src/Console/AppConsole.vala:408
+#: src/Console/AppConsole.vala:415
 #, c-format
 msgid "Kernel %s Available"
 msgstr "Kernel %s je dostupan"
 
-#: src/Console/AppConsole.vala:414
+#: src/Console/AppConsole.vala:421
 msgid "Show"
 msgstr "Prikaži"
 
-#: src/Console/AppConsole.vala:415 src/Gtk/MainWindow.vala:399
+#: src/Console/AppConsole.vala:422 src/Gtk/MainWindow.vala:901
 msgid "Install"
 msgstr "Instaliraj"
 
-#: src/Console/AppConsole.vala:420
+#: src/Console/AppConsole.vala:432
 msgid "Previously notified"
 msgstr "Prethodno prijavljeno"
 
-#: src/Gtk/AppGtk.vala:121
+#: src/Gtk/AppGtk.vala:120
 msgid "Unknown option"
 msgstr ""
 
-#: src/Gtk/AppGtk.vala:133
+#: src/Gtk/AppGtk.vala:132
 #, fuzzy
 msgid "Information"
 msgstr "Konfiguracija"
 
-#: src/Gtk/MainWindow.vala:192
+#: src/Gtk/MainWindow.vala:118
+msgid "Switch View"
+msgstr ""
+
+#. Extra padding to avoid clipping
+#: src/Gtk/MainWindow.vala:440
+msgid "Click to add or edit a note"
+msgstr ""
+
+#: src/Gtk/MainWindow.vala:470
 msgid "Date"
 msgstr ""
 
-#: src/Gtk/MainWindow.vala:223
+#: src/Gtk/MainWindow.vala:475 src/Gtk/MainWindow.vala:871
+#: src/Gtk/MainWindow.vala:938
 msgid "Lock"
 msgstr "Brava"
 
-#: src/Gtk/MainWindow.vala:250
+#: src/Gtk/MainWindow.vala:478
 msgid "Status"
 msgstr "Stanje"
 
-#: src/Gtk/MainWindow.vala:408
+#: src/Gtk/MainWindow.vala:521
+#, c-format
+msgid "Series %d.%d"
+msgstr ""
+
+#: src/Gtk/MainWindow.vala:698
+msgid "Locked"
+msgstr "Zaključan"
+
+#: src/Gtk/MainWindow.vala:871 src/Gtk/MainWindow.vala:938
+msgid "Unlock"
+msgstr ""
+
+#: src/Gtk/MainWindow.vala:910
 msgid "Uninstall"
 msgstr "Deinstaliraj"
 
-#: src/Gtk/MainWindow.vala:416
+#: src/Gtk/MainWindow.vala:919
+msgid "Lock / Unlock"
+msgstr ""
+
+#: src/Gtk/MainWindow.vala:943
 msgid "Changelog, build status, etc"
 msgstr "Dnevnik promjena, status izrade itd"
 
-#: src/Gtk/MainWindow.vala:421 src/lib/l_exec.vala:7
+#: src/Gtk/MainWindow.vala:948 src/lib/l_exec.vala:7
 msgid "Unable to launch"
 msgstr "Nije moguće pokrenuti"
 
-#: src/Gtk/MainWindow.vala:424
+#: src/Gtk/MainWindow.vala:951
 msgid "Uninstall Old"
 msgstr "Deinstaliraj Staro"
 
-#: src/Gtk/MainWindow.vala:425
+#: src/Gtk/MainWindow.vala:952
 msgid ""
 "Uninstall everything except:\n"
 "* the highest installed version\n"
@@ -600,11 +636,11 @@ msgstr ""
 "* trenutačno pokrenuta jezgra\n"
 "* sve kernele koje su zaključane"
 
-#: src/Gtk/MainWindow.vala:429
+#: src/Gtk/MainWindow.vala:956
 msgid "Reload"
 msgstr "Ponovno učitati"
 
-#: src/Gtk/MainWindow.vala:430
+#: src/Gtk/MainWindow.vala:957
 msgid ""
 "Delete and reload all cached kernel info\n"
 "(the same as \"mainline --delete-cache\")"
@@ -612,19 +648,19 @@ msgstr ""
 "Izbriši i ponovno učitaj sve podatke o jezgri u predmemoriji\n"
 "(isto kao \"mainline --delete-cache\")"
 
-#: src/Gtk/MainWindow.vala:434
+#: src/Gtk/MainWindow.vala:961
 msgid "Settings"
 msgstr "Postavke"
 
-#: src/Gtk/MainWindow.vala:438
+#: src/Gtk/MainWindow.vala:965
 msgid "About"
 msgstr "O programu"
 
-#: src/Gtk/MainWindow.vala:442
+#: src/Gtk/MainWindow.vala:969
 msgid "Exit"
 msgstr "Izlaz"
 
-#: src/Gtk/MainWindow.vala:466
+#: src/Gtk/MainWindow.vala:1007
 msgid ""
 "A tool for installing kernel packages\n"
 "from the Arch Linux Archive"
@@ -632,20 +668,20 @@ msgstr ""
 "Alat za instaliranje kernel paketa\n"
 "iz Arch Linux Mainline Kernela Archive"
 
-#: src/Gtk/MainWindow.vala:476
+#: src/Gtk/MainWindow.vala:1018
 msgid "Updating Kernels..."
 msgstr ""
 
-#: src/Gtk/MainWindow.vala:528
+#: src/Gtk/MainWindow.vala:1070
 msgid "Installing Kernels..."
 msgstr ""
 
-#: src/Gtk/MainWindow.vala:543
+#: src/Gtk/MainWindow.vala:1085
 #, fuzzy
 msgid "Uninstalling Kernels..."
 msgstr "Deinstaliraj Staro"
 
-#: src/Gtk/MainWindow.vala:550
+#: src/Gtk/MainWindow.vala:1092
 #, fuzzy
 msgid "Uninstalling old kernels..."
 msgstr "Deinstaliraj Staro"
@@ -654,6 +690,7 @@ msgstr "Deinstaliraj Staro"
 msgid "Configuration"
 msgstr "Konfiguracija"
 
+#. Page 1: Filters
 #: src/Gtk/SettingsWindow.vala:12
 #, fuzzy
 msgid "Filters"
@@ -663,10 +700,12 @@ msgstr "Filter"
 msgid "General Filters"
 msgstr ""
 
+#. Hide RC/Unstable
 #: src/Gtk/SettingsWindow.vala:22
 msgid "Hide RC and unstable releases"
 msgstr ""
 
+#. Hide Invalid
 #: src/Gtk/SettingsWindow.vala:29
 msgid "Hide failed or incomplete builds"
 msgstr "Sakrij neuspjele ili nedovršene gradnje"
@@ -676,117 +715,189 @@ msgstr "Sakrij neuspjele ili nedovršene gradnje"
 msgid "Only show builds compatible with your architecture (%s)"
 msgstr ""
 
+#. Hide Flavors
 #: src/Gtk/SettingsWindow.vala:37
 #, c-format
 msgid "Hide flavors other than %s"
 msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:44
+#: src/Gtk/SettingsWindow.vala:43
+msgid "Version Limits"
+msgstr ""
+
+#. Prior major versions
+#: src/Gtk/SettingsWindow.vala:48
 #, fuzzy
 msgid "Show prior major versions"
 msgstr "prethodne glavne verzije  ( -1 = sve )"
 
-#: src/Gtk/SettingsWindow.vala:45
+#: src/Gtk/SettingsWindow.vala:49
 msgid "(-1 = all)"
 msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:55
+#. Page 2: Notifications
+#: src/Gtk/SettingsWindow.vala:59
 #, fuzzy
 msgid "Notifications"
 msgstr "Obavijesti"
 
-#: src/Gtk/SettingsWindow.vala:60
+#: src/Gtk/SettingsWindow.vala:64
 #, fuzzy
 msgid "Notification Settings"
 msgstr "Obavijesti"
 
-#: src/Gtk/SettingsWindow.vala:63
+#: src/Gtk/SettingsWindow.vala:67
 #, fuzzy
 msgid "Notify for major releases (e.g. 6.0, 7.0)"
 msgstr "Obavijesti ako je dostupno glavno izdanje"
 
-#: src/Gtk/SettingsWindow.vala:64
+#: src/Gtk/SettingsWindow.vala:68
 msgid "Notify for minor updates (e.g. 6.1.x, 6.2.x)"
 msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:68
-msgid "Check every"
-msgstr "Provjeri svaka"
+#. Check interval value
+#: src/Gtk/SettingsWindow.vala:72
+msgid "Check interval amount"
+msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:77
+#. Check interval units
+#: src/Gtk/SettingsWindow.vala:82
 msgid "Hours"
 msgstr "Sati"
 
-#: src/Gtk/SettingsWindow.vala:78
+#: src/Gtk/SettingsWindow.vala:83
 msgid "Days"
 msgstr "Dani"
 
-#: src/Gtk/SettingsWindow.vala:79
+#: src/Gtk/SettingsWindow.vala:84
 msgid "Weeks"
 msgstr "Tjedna"
 
-#: src/Gtk/SettingsWindow.vala:89
+#: src/Gtk/SettingsWindow.vala:87
+msgid "Check interval units"
+msgstr ""
+
+#. Page 3: Network
+#: src/Gtk/SettingsWindow.vala:94
 msgid "Network"
 msgstr "Mreža"
 
-#: src/Gtk/SettingsWindow.vala:94
+#: src/Gtk/SettingsWindow.vala:99
 msgid "Download & Connection"
 msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:99
+#. Timeout
+#: src/Gtk/SettingsWindow.vala:104
 #, fuzzy
 msgid "Connection Timeout (seconds)"
 msgstr "Vrijeme povezanosti je isteklo:"
 
-#: src/Gtk/SettingsWindow.vala:109
+#. Concurrent Downloads
+#: src/Gtk/SettingsWindow.vala:114
 #, fuzzy
 msgid "Concurrent Downloads"
 msgstr "Istovremena preuzimanja:"
 
-#: src/Gtk/SettingsWindow.vala:119
+#. Checksums
+#: src/Gtk/SettingsWindow.vala:124
 msgid "Verify Checksums"
 msgstr "Provjerite kontrolne zbrojeve"
 
-#: src/Gtk/SettingsWindow.vala:126 src/Gtk/SettingsWindow.vala:149
+#. Keep Packages
+#: src/Gtk/SettingsWindow.vala:131
+msgid "Keep Packages"
+msgstr ""
+
+#: src/Gtk/SettingsWindow.vala:132
+msgid "Retain downloaded *.pkg.tar.zst files after install"
+msgstr ""
+
+#. Keep Cache
+#: src/Gtk/SettingsWindow.vala:139
+msgid "Keep Cache"
+msgstr ""
+
+#: src/Gtk/SettingsWindow.vala:140
+msgid "Don't trim the cached index files"
+msgstr ""
+
+#. Proxy
+#: src/Gtk/SettingsWindow.vala:147 src/Gtk/SettingsWindow.vala:151
+msgid "Proxy"
+msgstr "Proxy"
+
+#. Page 4: External Commands
+#: src/Gtk/SettingsWindow.vala:158 src/Gtk/SettingsWindow.vala:181
 msgid "External Commands"
 msgstr "Vanjske Naredbe"
 
-#: src/Gtk/SettingsWindow.vala:131
+#: src/Gtk/SettingsWindow.vala:163
 msgid "URLs & User Agent"
 msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:136
+#. Repo URL
+#: src/Gtk/SettingsWindow.vala:168
 #, fuzzy
-msgid "Arch Linux Archive URL"
+msgid "Archive URL"
 msgstr "Mainline-Archive URL"
 
-#: src/Gtk/SettingsWindow.vala:143
-msgid "User Agent String"
+#. User Agent
+#: src/Gtk/SettingsWindow.vala:175
+msgid "User Agent"
 msgstr ""
 
-#: src/Gtk/SettingsWindow.vala:157
+#: src/Gtk/SettingsWindow.vala:189
 msgid "Superuser Authorization"
 msgstr "Autorizacija superkorisnika"
 
-#: src/Gtk/SettingsWindow.vala:169
+#: src/Gtk/SettingsWindow.vala:201
 msgid "Terminal Window"
 msgstr "Prozor terminala"
 
-#: src/Gtk/TerminalWindow.vala:104
+#. btn_cancel (Destructive)
+#: src/Gtk/TerminalWindow.vala:106
 msgid "Cancel"
 msgstr "Odustani"
 
-#: src/Gtk/TerminalWindow.vala:113
-msgid "Close"
-msgstr "Zatvori"
-
-#: src/Gtk/TerminalWindow.vala:130
+#. Copy button
+#: src/Gtk/TerminalWindow.vala:124
 msgid "Copy all output"
 msgstr ""
 
 #: src/lib/l_misc.vala:9
 msgid "Continue?"
 msgstr ""
+
+#~ msgid "removal"
+#~ msgstr "uklanjanje"
+
+#~ msgid "installation"
+#~ msgstr "montaža"
+
+#~ msgid "prevented"
+#~ msgstr "spriječeno"
+
+#~ msgid "Called from"
+#~ msgstr "Pozvano od"
+
+#~ msgid "at logon"
+#~ msgstr "indításkor"
+
+#~ msgid ""
+#~ "This file is over-written and executed again whenever settings are saved "
+#~ "in"
+#~ msgstr ""
+#~ "Ova se datoteka prepisuje i ponovno izvršava kad god se postavke spremaju "
+#~ "u"
+
+#~ msgid "Notifications are disabled"
+#~ msgstr "Obavijesti su onemogućene"
+
+#~ msgid "Check every"
+#~ msgstr "Provjeri svaka"
+
+#~ msgid "Close"
+#~ msgstr "Zatvori"
 
 #~ msgid "Uninstall: no uninstallable packages found"
 #~ msgstr "Deinstaliraj: nisu pronađeni paketi koji se mogu deinstalirati"
@@ -828,9 +939,6 @@ msgstr ""
 #~ "Zadrži preuzete .pkg.tar.zst datoteke nakon instalacije i ponovno ih "
 #~ "upotrijebi za deinstalaciju/ponovnu instalaciju umjesto ponovnog "
 #~ "preuzimanja."
-
-#~ msgid "Proxy"
-#~ msgstr "Proxy"
 
 #~ msgid "The built-in list contains examples of both."
 #~ msgstr "Ugrađeni popis sadrži primjere oba."
