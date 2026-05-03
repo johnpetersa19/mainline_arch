@@ -384,7 +384,14 @@ public class MainWindow : Adw.ApplicationWindow {
 				if (is_binding) return;
 				var k = li.get_item() as LinuxKernel;
 				if (k != null) {
-					k.set_locked(cb.active);
+					bool success = k.set_locked(cb.active);
+					if (!success) {
+						// Reverte se falhou
+						is_binding = true;
+						cb.active = k.is_locked;
+						is_binding = false;
+					}
+					tv_refresh(); // atualiza cards do modo grade também
 					set_button_state();
 				}
 			});
@@ -849,7 +856,21 @@ public class MainWindow : Adw.ApplicationWindow {
 
 		btn_uninstall_old.sensitive = true;
 		btn_reload.sensitive        = true;
-		if (btn_lock_toggle != null) btn_lock_toggle.sensitive = selected_kernels.size > 0;
+		if (btn_lock_toggle != null) {
+			bool all_running = selected_kernels.size > 0;
+			foreach (var k in selected_kernels) {
+				if (!k.is_running) { all_running = false; break; }
+			}
+			btn_lock_toggle.sensitive = selected_kernels.size > 0 && !all_running && !updating;
+			// Atualiza label/ícone do botão conforme seleção
+			bool any_locked = false;
+			foreach (var k in selected_kernels) if (k.is_locked) { any_locked = true; break; }
+			var bc = btn_lock_toggle.child as Adw.ButtonContent;
+			if (bc != null) {
+				bc.icon_name = any_locked ? "changes-allow-symbolic" : "changes-prevent-symbolic";
+				bc.label = any_locked ? _("Unlock") : _("Lock");
+			}
+		}
 
 		foreach (var k in selected_kernels) {
 			if (k.is_installed) {
@@ -901,10 +922,21 @@ public class MainWindow : Adw.ApplicationWindow {
 		sidebar.append(btn_lock_toggle);
 		btn_lock_toggle.clicked.connect(() => {
 			foreach (var k in selected_kernels) {
+				// Protege kernel running — nunca deixa o usuário desbloquear via botão
+				if (k.is_running) continue;
 				k.set_locked(!k.is_locked);
 			}
 			tv_refresh();
 			set_button_state();
+
+			// Atualiza o ícone do botão para refletir o estado majoritário
+			bool any_locked = false;
+			foreach (var k in selected_kernels) if (k.is_locked) { any_locked = true; break; }
+			var bc = btn_lock_toggle.child as Adw.ButtonContent;
+			if (bc != null) {
+				bc.icon_name = any_locked ? "changes-prevent-symbolic" : "changes-allow-symbolic";
+				bc.label = any_locked ? _("Unlock") : _("Lock");
+			}
 		});
 
 		button = new Button.with_label("Repo");

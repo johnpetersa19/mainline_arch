@@ -287,11 +287,22 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		is_invalid = b;
 	}
 
-	public void set_locked(bool b) {
-		if (b) fwrite(LOCKED_FILE, "");
-		else rm(LOCKED_FILE);
-		is_locked = b;
+	public bool set_locked(bool b) {
+		if (b) {
+			// Garante que o diretório pai existe antes de escrever
+			var dir = Path.get_dirname(LOCKED_FILE);
+			if (!FileUtils.test(dir, FileTest.IS_DIR)) {
+				DirUtils.create_with_parents(dir, 0755);
+			}
+			fwrite(LOCKED_FILE, "");
+		} else {
+			rm(LOCKED_FILE);
+		}
+		// Lê o estado real do disco — sem falso positivo
+		is_locked = FileUtils.test(LOCKED_FILE, FileTest.EXISTS);
 		set_status();
+		// Retorna true somente se o estado real corresponde ao solicitado
+		return is_locked == b;
 	}
 
 	public void set_notes(string s="") {
@@ -644,8 +655,6 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			if (k.version.replace("-",".") == RUNNING_KERNEL.replace("-",".") || k.name.has_suffix(s)) {
 				k.is_running = true;
 				k.is_installed = true;
-				vprint("Auto-locking running kernel: " + k.version_main, 2);
-				k.set_locked(true);
 				k.set_status();
 				kernel_active = k;
 				break;
