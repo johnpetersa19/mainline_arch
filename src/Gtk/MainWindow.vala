@@ -39,6 +39,7 @@ public class MainWindow : Adw.ApplicationWindow {
 	Button btn_install;
 	Button btn_uninstall;
 	Button btn_uninstall_old;
+	Button btn_lock_toggle;
 	Button btn_reload;
 	Label lbl_info;
 	Gtk.Spinner spn_info;
@@ -681,6 +682,19 @@ public class MainWindow : Adw.ApplicationWindow {
 		lbl_status.halign = Gtk.Align.CENTER;
 		box.append(lbl_status);
 
+		if (k.is_locked) {
+			var lock_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 4);
+			lock_box.halign = Gtk.Align.CENTER;
+			lock_box.margin_top = 2;
+			var lock_icon = new Gtk.Image.from_icon_name("changes-prevent-symbolic");
+			lock_icon.pixel_size = 12;
+			var lock_lbl = new Gtk.Label(_("Locked"));
+			lock_lbl.add_css_class("sub-text");
+			lock_box.append(lock_icon);
+			lock_box.append(lock_lbl);
+			box.append(lock_box);
+		}
+
 		if (k.notes != "") {
 			var lbl_notes = new Gtk.Label(k.notes);
 			lbl_notes.add_css_class("sub-text");
@@ -827,11 +841,13 @@ public class MainWindow : Adw.ApplicationWindow {
 		if (updating) {
 			btn_uninstall_old.sensitive = false;
 			btn_reload.sensitive        = false;
+			if (btn_lock_toggle != null) btn_lock_toggle.sensitive = false;
 			return;
 		}
 
 		btn_uninstall_old.sensitive = true;
 		btn_reload.sensitive        = true;
+		if (btn_lock_toggle != null) btn_lock_toggle.sensitive = selected_kernels.size > 0;
 
 		foreach (var k in selected_kernels) {
 			if (k.is_installed) {
@@ -874,6 +890,20 @@ public class MainWindow : Adw.ApplicationWindow {
 		btn_uninstall.add_css_class("destructive-action");
 		sidebar.append(btn_uninstall);
 		btn_uninstall.clicked.connect(() => { do_uninstall(selected_kernels); });
+
+		btn_lock_toggle = new Button();
+		var bc_lock = new Adw.ButtonContent();
+		bc_lock.label = _("Lock / Unlock");
+		bc_lock.icon_name = "changes-prevent-symbolic";
+		btn_lock_toggle.child = bc_lock;
+		sidebar.append(btn_lock_toggle);
+		btn_lock_toggle.clicked.connect(() => {
+			foreach (var k in selected_kernels) {
+				k.set_locked(!k.is_locked);
+			}
+			tv_refresh();
+			set_button_state();
+		});
 
 		button = new Button.with_label("Repo");
 		button.set_tooltip_text(_("Changelog, build status, etc"));

@@ -287,10 +287,34 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		is_invalid = b;
 	}
 
-	public void set_locked(bool b) {
-		if (b) fwrite(LOCKED_FILE,"");
-		else rm(LOCKED_FILE);
-		is_locked = b;
+	public void set_locked(bool lock) {
+		vprint("set_locked(" + version_main + ", " + lock.to_string() + ")", 3);
+
+		// Garante que o diretório de dados existe
+		if (!FileUtils.test(DATA_KDIR, FileTest.IS_DIR)) {
+			DirUtils.create_with_parents(DATA_KDIR, 0755);
+		}
+
+		if (lock) {
+			// Cria o arquivo de lock (arquivo vazio como flag)
+			if (!FileUtils.test(LOCKED_FILE, FileTest.EXISTS)) {
+				try {
+					FileUtils.set_contents(LOCKED_FILE, "");
+				} catch (Error e) {
+					vprint("set_locked: failed to create lock file: " + e.message, 1, stderr);
+					return;
+				}
+			}
+			is_locked = true;
+		} else {
+			// Remove o arquivo de lock
+			if (FileUtils.test(LOCKED_FILE, FileTest.EXISTS)) {
+				FileUtils.remove(LOCKED_FILE);
+			}
+			is_locked = false;
+		}
+
+		set_status();
 	}
 
 	public void set_notes(string s="") {
@@ -1049,9 +1073,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		// other
 		if (is_locked) {
 			if (txt.length > 0) txt += "\n\n";
-			txt += "<b>"+_("Locked")+"</b>\n";
-			if (is_installed) txt += _("removal"); else txt += _("installation");
-			txt += " " + _("prevented");
+			txt += "🔒 " + _("Locked (protected from removal)");
 		}
 
 		return txt;
