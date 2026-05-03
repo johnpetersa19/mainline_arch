@@ -380,13 +380,13 @@ public class MainWindow : Adw.ApplicationWindow {
 			var cb = new Gtk.CheckButton();
 			cb.halign = Gtk.Align.CENTER;
 			li.set_child(cb);
-			cb.notify["active"].connect(() => {
+			cb.toggled.connect(() => {
 				if (is_binding) return;
 				var k = li.get_item() as LinuxKernel;
-				if (k != null && cb.active != k.is_locked) {
-					k.set_locked(cb.active);
-					set_button_state();
-				}
+				if (k == null) return;
+				if (cb.active == k.is_locked) return;
+				k.set_locked(cb.active);
+				set_button_state();
 			});
 		});
 		factory_lock.bind.connect((obj) => {
@@ -756,9 +756,11 @@ public class MainWindow : Adw.ApplicationWindow {
 		if (App.view_mode == 1) {
 			stack_view.visible_child_name = "large";
 			btn_view_toggle.icon_name = "view-grid-symbolic";
+			if (btn_lock_toggle != null) btn_lock_toggle.visible = true;
 		} else {
 			stack_view.visible_child_name = "list";
 			btn_view_toggle.icon_name = "view-list-symbolic";
+			if (btn_lock_toggle != null) btn_lock_toggle.visible = false;
 		}
 	}
 
