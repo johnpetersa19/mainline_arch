@@ -383,10 +383,10 @@ public class MainWindow : Adw.ApplicationWindow {
 			cb.toggled.connect(() => {
 				if (is_binding) return;
 				var k = li.get_item() as LinuxKernel;
-				if (k == null) return;
-				if (cb.active == k.is_locked) return;
-				k.set_locked(cb.active);
-				set_button_state();
+				if (k != null) {
+					k.set_locked(cb.active);
+					set_button_state();
+				}
 			});
 		});
 		factory_lock.bind.connect((obj) => {
