@@ -484,7 +484,7 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 		MatchInfo mi;
 		bool is_arch = App.repo_uri.contains("archlinux.org");
 
-		Gee.HashMap<string, LinuxKernel> arch_latest_builds = new Gee.HashMap<string, LinuxKernel>();
+		var arch_builds = new Gee.HashMap<string, Gee.ArrayList<LinuxKernel>>();
 
 		foreach (string l in txt.split("\n")) {
 			Regex current_rex = is_arch ? rex_pageuri_arch : rex_pageuri;
@@ -507,19 +507,15 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 				k.vers = v;
 				k.flavor = "generic";
 				
-				// Deduplicate builds: keep only the latest pkgrel for each base version
+				// Agrupa todos os builds por versão base (sem o pkgrel "-N")
 				string base_ver = v;
 				int dash_idx = v.last_index_of("-");
 				if (dash_idx > 0) base_ver = v.substring(0, dash_idx);
 				
-				if (arch_latest_builds.has_key(base_ver)) {
-					var existing = arch_latest_builds[base_ver];
-					if (k.compare_to(existing) > 0) {
-						arch_latest_builds[base_ver] = k;
-					}
-				} else {
-					arch_latest_builds[base_ver] = k;
+				if (!arch_builds.has_key(base_ver)) {
+					arch_builds[base_ver] = new Gee.ArrayList<LinuxKernel>();
 				}
+				arch_builds[base_ver].add(k); // ACUMULA todos os builds
 				continue;
 			}
 			
@@ -530,13 +526,18 @@ public class LinuxKernel : GLib.Object, Gee.Comparable<LinuxKernel> {
 			kall.add(k); // a seperate list with nothing removed, used in trim_cache()
 		}
 
+		// DEPOIS — adiciona TODOS os builds de cada versão base:
 		if (is_arch) {
-			foreach (var k in arch_latest_builds.values) {
-				if (k.version_major>=THRESHOLD_MAJOR) {
-					k.repo_datetime = 0;
-					k.kernel_list_add();
+			foreach (var builds in arch_builds.values) {
+				// Ordena os builds do mesmo base_ver do mais novo para o mais antigo
+				builds.sort((a, b) => b.compare_to(a));
+				foreach (var k in builds) {
+					if (k.version_major >= THRESHOLD_MAJOR) {
+						k.repo_datetime = 0;
+						k.kernel_list_add();
+					}
+					kall.add(k);
 				}
-				kall.add(k);
 			}
 		}
 
